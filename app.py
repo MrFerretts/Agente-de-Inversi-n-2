@@ -341,6 +341,50 @@ def analizar_backtest_con_ia(ticker, resultados, trades):
         return completion.choices[0].message.content
     except Exception as e:
         return f"⚠️ No se pudo generar la bitácora de IA: {str(e)}"
+
+def consultar_ia_riesgo(ticker, risk_calc, position_calc, market_regime, ml_prediction=None):
+    """
+    Analiza la gestión de riesgo técnica vs el contexto macro e IA.
+    """
+    try:
+        from groq import Groq
+        client = Groq(api_key=API_CONFIG['groq_api_key'])
+        
+        ml_context = f"Prob. Alcista: {ml_prediction['probability_up']*100:.1f}% | Confianza: {ml_prediction['confidence_level']}" if ml_prediction else "No disponible"
+        
+        prompt = f"""
+        Actúa como un Chief Risk Officer (CRO) de un fondo de cobertura.
+        Analiza el riesgo para una posición en {ticker}:
+
+        DATOS TÉCNICOS:
+        - Stop Loss: ${risk_calc['stop_loss']:.2f} ({risk_calc['stop_loss_pct']:.2f}%)
+        - Risk/Reward: {risk_calc['risk_reward_ratio']:.2f}:1
+        - Tamaño sugerido: {position_calc['shares']} acciones (${position_calc['position_value']:.2f})
+
+        CONTEXTO MACRO:
+        - Régimen: {market_regime['regime']}
+        - VIX: {market_regime['vix']:.2f}
+        - Tendencia SPY: {market_regime['spy_trend']}
+
+        INTELIGENCIA ARTIFICIAL:
+        - {ml_context}
+
+        TAREA:
+        1. ¿El riesgo del {position_calc['max_loss_pct']:.2f}% es adecuado para este entorno?
+        2. ¿Deberíamos ajustar el tamaño de la posición basado en el VIX y la probabilidad de la IA?
+        3. Da un veredicto: [RIESGO ACEPTADO / REDUCIR POSICIÓN / CANCELAR OPERACIÓN]
+        Responde en 3 párrafos cortos y directos.
+        """
+        
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "system", "content": "Eres un experto en gestión de riesgos financieros."},
+                      {"role": "user", "content": prompt}],
+            temperature=0.3
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"⚠️ Error en AI Risk Officer: {str(e)}"
         
 # Watchlist management
 import json
@@ -788,6 +832,12 @@ with tab3:
         st.success("✅ Posición dentro de límites de riesgo")
     else:
         st.error("❌ Posición excede límites - Reducir tamaño")
+
+    # ============================================================================
+    # 🛡️ AQUÍ ES DONDE PEGAS EL NUEVO CÓDIGO DEL AI RISK OFFICER
+    # ============================================================================
+    st.markdown("---")
+    st.subheader("🛡️ AI Risk Officer - Validación Inteligente")
     
     # Visualización de niveles en gráfico
     st.markdown("---")
