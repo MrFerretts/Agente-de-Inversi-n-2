@@ -673,30 +673,33 @@ with tab5:
                 st.success("✅ ¡Reporte de 13 indicadores enviado!")
 
 # ============================================================================
-# MONITOR DE SEÑALES EN TIEMPO REAL (PÉGALO AQUÍ)
+# MONITOR DE SEÑALES EN TIEMPO REAL (FUERA DE LAS TABS)
 # ============================================================================
-        st.sidebar.markdown("---")
-        st.sidebar.header("🔔 Alertas Proactivas")
-        auto_monitor = st.sidebar.checkbox("Activar Monitor en Vivo", value=False)
+st.sidebar.markdown("---")
+st.sidebar.header("🔔 Alertas Proactivas")
+auto_monitor = st.sidebar.checkbox("Activar Monitor en Vivo", value=False)
 
-        if auto_monitor:
-           last_signal_key = f"last_alert_{ticker}"
-           current_rec = analysis['signals']['recommendation']
+# El monitor debe ejecutarse siempre que esté activo, sin importar la pestaña
+if auto_monitor:
+    last_signal_key = f"last_alert_{ticker}"
+    current_rec = analysis['signals']['recommendation']
     
+    # IMPORTANTE: Todo este bloque debe estar indentado dentro de 'if auto_monitor'
     if "FUERTE" in current_rec:
         if st.session_state.get(last_signal_key) != current_rec:
             with st.sidebar:
                 with st.spinner("Enviando alerta en tiempo real..."):
+                    # Llamada al gestor de notificaciones modular
                     notifier.send_signal_alert(ticker, analysis)
                     st.session_state[last_signal_key] = current_rec
                     st.toast(f"🚀 Alerta enviada: {ticker} - {current_rec}")
                     st.success(f"🔔 Alerta de {current_rec} emitida.")
     else:
         st.sidebar.info("🛰️ Monitoreando... Esperando señal fuerte.")
+
 # ============================================================================
 # FOOTER
 # ============================================================================
-
 st.markdown("---")
 st.caption(f"""
 🦆 Pato Quant Terminal Pro v2.0 | 
