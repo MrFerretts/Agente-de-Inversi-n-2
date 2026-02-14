@@ -56,6 +56,8 @@ if 'state_manager' not in st.session_state:
     st.session_state.fetcher = MarketDataFetcher(API_CONFIG)
     st.session_state.analyzer = TechnicalAnalyzer(TECHNICAL_INDICATORS)
     st.session_state.notifier = NotificationManager({'NOTIFICATIONS': NOTIFICATIONS})
+    # 🤖 ESTO DEBE QUEDAR AFUERA (Línea ~60 aprox)
+if 'ml_models' not in st.session_state:
     st.session_state.ml_models = {}
 
 state_mgr = st.session_state.state_manager
