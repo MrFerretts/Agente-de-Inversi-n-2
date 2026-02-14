@@ -9,6 +9,341 @@ import numpy as np
 from typing import Dict, List, Optional
 import logging
 
+"""
+MÓDULO DE DETECCIÓN DE DIVERGENCIAS
+Sistema avanzado para detectar divergencias RSI-Precio y MACD-Precio
+Estas son señales MUY potentes de reversión de tendencia
+
+Copiar este código y agregarlo a technical_analysis.py
+"""
+
+import pandas as pd
+from typing import Dict, List, Tuple
+
+
+def detect_divergences(data: pd.DataFrame, lookback: int = 20) -> Dict:
+    """
+    Detecta divergencias entre precio e indicadores (RSI y MACD)
+    
+    Las divergencias son señales de REVERSIÓN muy potentes:
+    - Divergencia Alcista: Precio baja pero indicador sube → Posible rebote
+    - Divergencia Bajista: Precio sube pero indicador baja → Posible caída
+    
+    Args:
+        data: DataFrame con columnas Close, RSI, MACD_Hist
+        lookback: Número de períodos a analizar (default 20 días)
+    
+    Returns:
+        Dict con tipos de divergencias detectadas y detalles
+    """
+    divergences = {
+        'rsi_bullish': False,
+        'rsi_bearish': False,
+        'macd_bullish': False,
+        'macd_bearish': False,
+        'signals': [],
+        'score_impact': 0,
+        'details': {}
+    }
+    
+    if len(data) < lookback + 5:
+        return divergences
+    
+    # Tomar ventana de análisis
+    window = data.tail(lookback)
+    
+    # ====================================================================
+    # ANÁLISIS DE TENDENCIAS
+    # ====================================================================
+    
+    # Precios
+    precio_inicio = window['Close'].iloc[0]
+    precio_fin = window['Close'].iloc[-1]
+    precio_cambio = ((precio_fin - precio_inicio) / precio_inicio) * 100
+    
+    # RSI
+    rsi_inicio = window['RSI'].iloc[0]
+    rsi_fin = window['RSI'].iloc[-1]
+    rsi_cambio = rsi_fin - rsi_inicio
+    
+    # MACD Histogram
+    macd_inicio = window['MACD_Hist'].iloc[0]
+    macd_fin = window['MACD_Hist'].iloc[-1]
+    macd_cambio = macd_fin - macd_inicio
+    
+    # ====================================================================
+    # DETECCIÓN DE DIVERGENCIAS RSI
+    # ====================================================================
+    
+    # Umbrales para considerar cambio significativo
+    MIN_PRECIO_CAMBIO = 2.0  # 2% mínimo de movimiento de precio
+    MIN_RSI_CAMBIO = 5.0     # 5 puntos mínimo de cambio en RSI
+    
+    # DIVERGENCIA ALCISTA RSI
+    # Precio hace mínimos más bajos, pero RSI hace mínimos más altos
+    if precio_cambio < -MIN_PRECIO_CAMBIO and rsi_cambio > MIN_RSI_CAMBIO:
+        divergences['rsi_bullish'] = True
+        divergences['score_impact'] += 20
+        
+        signal = (
+            f"⚡ DIVERGENCIA ALCISTA RSI detectada: "
+            f"Precio cayó {abs(precio_cambio):.1f}% pero RSI subió {rsi_cambio:.1f} puntos. "
+            f"Señal de posible REVERSIÓN alcista."
+        )
+        divergences['signals'].append(signal)
+        
+        divergences['details']['rsi_bullish'] = {
+            'precio_cambio': precio_cambio,
+            'rsi_cambio': rsi_cambio,
+            'strength': 'FUERTE' if abs(precio_cambio) > 5 and rsi_cambio > 10 else 'MODERADA'
+        }
+    
+    # DIVERGENCIA BAJISTA RSI
+    # Precio hace máximos más altos, pero RSI hace máximos más bajos
+    elif precio_cambio > MIN_PRECIO_CAMBIO and rsi_cambio < -MIN_RSI_CAMBIO:
+        divergences['rsi_bearish'] = True
+        divergences['score_impact'] -= 20
+        
+        signal = (
+            f"⚡ DIVERGENCIA BAJISTA RSI detectada: "
+            f"Precio subió {precio_cambio:.1f}% pero RSI cayó {abs(rsi_cambio):.1f} puntos. "
+            f"Señal de posible REVERSIÓN bajista."
+        )
+        divergences['signals'].append(signal)
+        
+        divergences['details']['rsi_bearish'] = {
+            'precio_cambio': precio_cambio,
+            'rsi_cambio': rsi_cambio,
+            'strength': 'FUERTE' if precio_cambio > 5 and abs(rsi_cambio) > 10 else 'MODERADA'
+        }
+    
+    # ====================================================================
+    # DETECCIÓN DE DIVERGENCIAS MACD
+    # ====================================================================
+    
+    MIN_MACD_CAMBIO = 0.5  # Cambio mínimo en MACD histogram
+    
+    # DIVERGENCIA ALCISTA MACD
+    # Precio baja pero MACD sube (menos bajista)
+    if precio_cambio < -MIN_PRECIO_CAMBIO and macd_cambio > MIN_MACD_CAMBIO:
+        divergences['macd_bullish'] = True
+        divergences['score_impact'] += 15
+        
+        signal = (
+            f"📊 DIVERGENCIA ALCISTA MACD detectada: "
+            f"Precio cayó {abs(precio_cambio):.1f}% pero MACD mejoró. "
+            f"Momentum bajista perdiendo fuerza."
+        )
+        divergences['signals'].append(signal)
+        
+        divergences['details']['macd_bullish'] = {
+            'precio_cambio': precio_cambio,
+            'macd_cambio': macd_cambio,
+            'strength': 'FUERTE' if abs(precio_cambio) > 5 and macd_cambio > 1.0 else 'MODERADA'
+        }
+    
+    # DIVERGENCIA BAJISTA MACD
+    # Precio sube pero MACD baja (menos alcista)
+    elif precio_cambio > MIN_PRECIO_CAMBIO and macd_cambio < -MIN_MACD_CAMBIO:
+        divergences['macd_bearish'] = True
+        divergences['score_impact'] -= 15
+        
+        signal = (
+            f"📊 DIVERGENCIA BAJISTA MACD detectada: "
+            f"Precio subió {precio_cambio:.1f}% pero MACD empeoró. "
+            f"Momentum alcista perdiendo fuerza."
+        )
+        divergences['signals'].append(signal)
+        
+        divergences['details']['macd_bearish'] = {
+            'precio_cambio': precio_cambio,
+            'macd_cambio': macd_cambio,
+            'strength': 'FUERTE' if precio_cambio > 5 and abs(macd_cambio) > 1.0 else 'MODERADA'
+        }
+    
+    # ====================================================================
+    # DIVERGENCIA OCULTA (Hidden Divergence) - AVANZADO
+    # ====================================================================
+    # Solo si NO hay divergencia regular
+    
+    if not any([divergences['rsi_bullish'], divergences['rsi_bearish'], 
+                divergences['macd_bullish'], divergences['macd_bearish']]):
+        
+        # Buscar mínimos y máximos locales
+        window_prices = window['Close'].values
+        window_rsi = window['RSI'].values
+        
+        # Encontrar últimos 2 mínimos en precio
+        price_lows = find_local_minima(window_prices, order=5)
+        rsi_lows = find_local_minima(window_rsi, order=5)
+        
+        # Divergencia oculta alcista: Precio hace mínimos más ALTOS pero RSI hace mínimos más BAJOS
+        if len(price_lows) >= 2 and len(rsi_lows) >= 2:
+            if (window_prices[price_lows[-1]] > window_prices[price_lows[-2]] and
+                window_rsi[rsi_lows[-1]] < window_rsi[rsi_lows[-2]]):
+                
+                divergences['score_impact'] += 10
+                divergences['signals'].append(
+                    "🔍 DIVERGENCIA OCULTA ALCISTA: Continuación de tendencia alcista probable"
+                )
+    
+    return divergences
+
+
+def find_local_minima(data: list, order: int = 5) -> List[int]:
+    """
+    Encuentra mínimos locales en una serie de datos
+    
+    Args:
+        data: Lista de valores
+        order: Número de puntos a cada lado para comparar
+    
+    Returns:
+        Lista de índices donde hay mínimos locales
+    """
+    minima = []
+    
+    for i in range(order, len(data) - order):
+        # Verificar si es un mínimo local
+        is_min = True
+        for j in range(1, order + 1):
+            if data[i] >= data[i - j] or data[i] >= data[i + j]:
+                is_min = False
+                break
+        
+        if is_min:
+            minima.append(i)
+    
+    return minima
+
+
+def find_local_maxima(data: list, order: int = 5) -> List[int]:
+    """
+    Encuentra máximos locales en una serie de datos
+    
+    Args:
+        data: Lista de valores
+        order: Número de puntos a cada lado para comparar
+    
+    Returns:
+        Lista de índices donde hay máximos locales
+    """
+    maxima = []
+    
+    for i in range(order, len(data) - order):
+        # Verificar si es un máximo local
+        is_max = True
+        for j in range(1, order + 1):
+            if data[i] <= data[i - j] or data[i] <= data[i + j]:
+                is_max = False
+                break
+        
+        if is_max:
+            maxima.append(i)
+    
+    return maxima
+
+
+def analyze_divergence_strength(divergence_details: Dict) -> str:
+    """
+    Analiza la fuerza de una divergencia detectada
+    
+    Args:
+        divergence_details: Detalles de la divergencia
+    
+    Returns:
+        String describiendo la fuerza: DÉBIL, MODERADA, FUERTE, MUY FUERTE
+    """
+    if not divergence_details:
+        return "N/A"
+    
+    # Combinar criterios
+    precio_cambio = abs(divergence_details.get('precio_cambio', 0))
+    
+    if 'rsi_cambio' in divergence_details:
+        indicador_cambio = abs(divergence_details['rsi_cambio'])
+        
+        if precio_cambio > 8 and indicador_cambio > 15:
+            return "MUY FUERTE ⚡⚡⚡"
+        elif precio_cambio > 5 and indicador_cambio > 10:
+            return "FUERTE ⚡⚡"
+        elif precio_cambio > 3 and indicador_cambio > 7:
+            return "MODERADA ⚡"
+        else:
+            return "DÉBIL"
+    
+    elif 'macd_cambio' in divergence_details:
+        macd_cambio = abs(divergence_details['macd_cambio'])
+        
+        if precio_cambio > 8 and macd_cambio > 1.5:
+            return "MUY FUERTE ⚡⚡⚡"
+        elif precio_cambio > 5 and macd_cambio > 1.0:
+            return "FUERTE ⚡⚡"
+        elif precio_cambio > 3 and macd_cambio > 0.5:
+            return "MODERADA ⚡"
+        else:
+            return "DÉBIL"
+    
+    return "N/A"
+
+
+# ============================================================================
+# FUNCIÓN DE INTEGRACIÓN CON EL SISTEMA EXISTENTE
+# ============================================================================
+
+def integrate_divergences_into_scoring(data: pd.DataFrame, current_score: int, 
+                                      buy_signals: List, sell_signals: List,
+                                      neutral_signals: List) -> Tuple[int, List, List, List]:
+    """
+    Integra el análisis de divergencias en el sistema de scoring existente
+    
+    Args:
+        data: DataFrame con indicadores
+        current_score: Score actual del sistema
+        buy_signals: Lista de señales de compra
+        sell_signals: Lista de señales de venta
+        neutral_signals: Lista de señales neutrales
+    
+    Returns:
+        Tupla (nuevo_score, buy_signals, sell_signals, neutral_signals)
+    """
+    # Detectar divergencias
+    divergences = detect_divergences(data, lookback=20)
+    
+    # Aplicar impacto al score
+    new_score = current_score + divergences['score_impact']
+    
+    # Agregar señales a las listas correspondientes
+    for signal in divergences['signals']:
+        if divergences['score_impact'] > 0:
+            buy_signals.append(signal)
+        elif divergences['score_impact'] < 0:
+            sell_signals.append(signal)
+        else:
+            neutral_signals.append(signal)
+    
+    # Si hay divergencia fuerte, agregar nota adicional
+    if any([divergences['rsi_bullish'], divergences['macd_bullish']]):
+        if divergences.get('details'):
+            for div_type, details in divergences['details'].items():
+                if 'bullish' in div_type:
+                    strength = analyze_divergence_strength(details)
+                    neutral_signals.append(
+                        f"💡 Fuerza de divergencia alcista: {strength}"
+                    )
+    
+    if any([divergences['rsi_bearish'], divergences['macd_bearish']]):
+        if divergences.get('details'):
+            for div_type, details in divergences['details'].items():
+                if 'bearish' in div_type:
+                    strength = analyze_divergence_strength(details)
+                    neutral_signals.append(
+                        f"💡 Fuerza de divergencia bajista: {strength}"
+                    )
+    
+    return new_score, buy_signals, sell_signals, neutral_signals
+
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -304,15 +639,20 @@ class TechnicalAnalyzer:
         elif price['current'] >= indicators['bb_upper'] * 0.99:
             score -= 5
             sell_signals.append("🎯 Precio en banda superior (Bollinger)")
+        # ===================================================================
+        # 7️⃣ DETECCIÓN DE DIVERGENCIAS (±20 puntos)
+        # ===================================================================
+        score, buy_signals, sell_signals, neutral_signals = integrate_divergences_into_scoring(
+            data=data,
+            current_score=score,
+            buy_signals=buy_signals,
+            sell_signals=sell_signals,
+            neutral_signals=neutral_signals
+        )
         
         # ===================================================================
-        # 7️⃣ CLASIFICACIÓN FINAL
+        # 8️⃣ CLASIFICACIÓN FINAL (cambiar número)
         # ===================================================================
-        # Umbrales calibrados para el nuevo sistema:
-        # Score >= 60: Señal FUERTE con múltiples confirmaciones
-        # Score >= 30: Señal MODERADA
-        # Score <= -60: Venta FUERTE
-        # Score <= -30: Venta MODERADA
         
         if score >= 60:
             recommendation = 'COMPRA FUERTE'
