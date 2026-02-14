@@ -385,6 +385,41 @@ def consultar_ia_riesgo(ticker, risk_calc, position_calc, market_regime, ml_pred
         return completion.choices[0].message.content
     except Exception as e:
         return f"⚠️ Error en AI Risk Officer: {str(e)}"
+
+def generar_top_picks_ia(df_scanner):
+    """
+    Analiza el dataframe del scanner y selecciona los 3 activos con mejor setup.
+    """
+    try:
+        from groq import Groq
+        client = Groq(api_key=API_CONFIG['groq_api_key'])
+        
+        # Tomamos los top 10 por score para que la IA elija entre lo mejor
+        top_10_data = df_scanner.head(10).to_dict(orient='records')
+        
+        prompt = f"""
+        Actúa como un Portfolio Manager analizando un escaneo de mercado.
+        Aquí tienes los 10 activos con mejor Score Técnico hoy:
+        {top_10_data}
+
+        TAREA:
+        1. Selecciona los 3 activos con el setup más explosivo (combina RSI, MACD y ADX).
+        2. Explica brevemente el "Catalizador Técnico" de cada uno.
+        3. Da un precio objetivo estimado (Target) basado en la volatilidad actual.
+        
+        Formato: Usa negritas para los Tickers y bullets para los puntos. 
+        Máximo 3 párrafos en total.
+        """
+        
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "system", "content": "Eres un experto en selección de activos cuantitativos."},
+                      {"role": "user", "content": prompt}],
+            temperature=0.4
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"⚠️ No se pudo generar la selección: {str(e)}"
         
 # Watchlist management
 import json
@@ -1133,6 +1168,17 @@ with tab5:
                 macro_info = fetcher.get_market_regime()
                 notifier.send_full_report(df_summary=df_res, macro_info=macro_info)
                 st.success("✅ ¡Reporte de 13 indicadores enviado!")
+
+# ============================================================================
+        # 🤖 NUEVO: SELECCIÓN MAESTRA DE IA
+        # ============================================================================
+        st.markdown("---")
+        st.subheader("🌟 Selección Maestra de la IA")
+        if st.button("🤖 Analizar Top 3 Oportunidades"):
+            with st.spinner("La IA está comparando setups técnicos..."):
+                # Enviamos los resultados guardados en el session_state
+                analisis_top = generar_top_picks_ia(st.session_state.scanner_results)
+                st.markdown(analisis_top)
 
 with tab6:
     st.header(f"🤖 Machine Learning - {ticker}")
