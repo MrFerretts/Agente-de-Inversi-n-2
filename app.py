@@ -498,35 +498,15 @@ with tab4:
     st.header(f"🧪 Backtesting Profesional: {ticker}")
     
     col1, col2, col3 = st.columns(3)
-    
     with col1:
-        backtest_capital = st.number_input(
-            "Capital Inicial ($)",
-            min_value=1000,
-            value=10000,
-            step=1000
-        )
-    
+        backtest_capital = st.number_input("Capital Inicial ($)", min_value=1000, value=10000, step=1000)
     with col2:
-        take_profit = st.slider(
-            "Take Profit (%)",
-            min_value=1.0,
-            max_value=20.0,
-            value=5.0,
-            step=0.5
-        ) / 100
-    
+        take_profit = st.slider("Take Profit (%)", min_value=1.0, max_value=20.0, value=5.0, step=0.5) / 100
     with col3:
-        stop_loss = st.slider(
-            "Stop Loss (%)",
-            min_value=1.0,
-            max_value=10.0,
-            value=2.0,
-            step=0.5
-        ) / 100
+        stop_loss = st.slider("Stop Loss (%)", min_value=1.0, max_value=10.0, value=2.0, step=0.5) / 100
     
     if st.button("▶️ Ejecutar Backtest"):
-        with st.spinner("Ejecutando simulación..."):
+        with st.spinner("Ejecutando simulación con estrategia clásica..."):
             # Variables de simulación
             capital = backtest_capital
             posicion = 0
@@ -534,15 +514,15 @@ with tab4:
             historial_capital = []
             trades = []
             
-            # Estrategia: RSI + MACD
+            # --- ESTRATEGIA RESTAURADA (MODELO ANTERIOR) ---
             for i in range(1, len(data_processed)):
                 precio = data_processed['Close'].iloc[i]
                 rsi = data_processed['RSI'].iloc[i]
-                macd_hist = data_processed['MACD_Hist'].iloc[i]
-                macd_signal = data_processed['MACD_Signal'].iloc[i]
+                # Usamos MACD_Hist que es el nombre de columna en tu StateManager
+                macd_h = data_processed['MACD_Hist'].iloc[i] 
                 
-                # Señal de COMPRA
-                if posicion == 0 and rsi < 35 and macd_hist > 0:
+                # 1. Señal de COMPRA (Fórmula original: solo RSI bajo)
+                if posicion == 0 and rsi < 35:
                     posicion = capital / precio
                     precio_compra = precio
                     capital = 0
@@ -551,133 +531,61 @@ with tab4:
                         "Fecha": data_processed.index[i].date(),
                         "Tipo": "🟢 COMPRA",
                         "Precio": round(precio, 2),
-                        "Acciones": int(posicion),
-                        "Motivo": "RSI < 35 + MACD+"
+                        "Motivo": "RSI Sobrevendido"
                     })
                 
-                # Señal de VENTA
+                # 2. Señal de VENTA (Fórmula original: TP, SL o MACD debil)
                 elif posicion > 0:
                     rendimiento = (precio - precio_compra) / precio_compra
                     
-                    vender = False
-                    motivo = ""
-                    
-                    # Take profit
+                    # Condiciones de salida exactas del modelo anterior
                     if rendimiento >= take_profit:
-                        vender = True
                         motivo = f"💰 Take Profit ({rendimiento*100:.1f}%)"
-                    
-                    # Stop loss
+                        vender = True
                     elif rendimiento <= -stop_loss:
-                        vender = True
                         motivo = f"🛡️ Stop Loss ({rendimiento*100:.1f}%)"
-                    
-                    # Señal técnica de salida
-                    elif macd_hist < 0 and rsi > 50:
                         vender = True
-                        motivo = "📉 Señal técnica (MACD- + RSI alto)"
-                    
+                    elif macd_h < 0 and rsi > 50:
+                        motivo = "📉 Debilidad MACD + RSI"
+                        vender = True
+                    else:
+                        vender = False
+
                     if vender:
                         capital = posicion * precio
-                        
                         trades.append({
                             "Fecha": data_processed.index[i].date(),
                             "Tipo": "🔴 VENTA",
                             "Precio": round(precio, 2),
-                            "Acciones": int(posicion),
                             "Motivo": motivo,
                             "P/L %": f"{rendimiento*100:.2f}%"
                         })
-                        
                         posicion = 0
                 
-                # Registrar valor actual
+                # Registrar valor actual del portafolio
                 valor_actual = capital if posicion == 0 else posicion * precio
                 historial_capital.append(valor_actual)
             
-            # Valor final
+            # --- CÁLCULO DE RESULTADOS FINALES ---
             valor_final = capital if posicion == 0 else posicion * data_processed['Close'].iloc[-1]
             rendimiento_total = ((valor_final - backtest_capital) / backtest_capital) * 100
             
-            # Resultados
             st.markdown("---")
-            st.subheader("📊 Resultados del Backtest")
-            
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Capital Inicial", f"${backtest_capital:,.0f}")
-            
-            with col2:
-                st.metric("Valor Final", f"${valor_final:,.2f}")
-            
-            with col3:
-                color = "normal" if rendimiento_total >= 0 else "inverse"
-                st.metric(
-                    "Rendimiento",
-                    f"{rendimiento_total:.2f}%",
-                    delta_color=color
-                )
-            
-            with col4:
-                st.metric("Trades Totales", len(trades))
+            col_a, col_b, col_c, col_d = st.columns(4)
+            col_a.metric("Capital Inicial", f"${backtest_capital:,.0f}")
+            col_b.metric("Valor Final", f"${valor_final:,.2f}")
+            col_c.metric("Rendimiento", f"{rendimiento_total:.2f}%", delta=f"{rendimiento_total:.2f}%")
+            col_d.metric("Trades Totales", len(trades))
             
             # Gráfico de evolución
-            st.markdown("---")
-            fig_backtest = go.Figure()
+            fig_bt = go.Figure()
+            fig_bt.add_trace(go.Scatter(x=data_processed.index[1:], y=historial_capital, fill='tozeroy', line=dict(color='cyan')))
+            fig_bt.update_layout(title="Evolución de tu Capital ($)", template="plotly_dark", height=400)
+            st.plotly_chart(fig_bt, use_container_width=True)
             
-            fig_backtest.add_trace(go.Scatter(
-                x=data_processed.index[1:],
-                y=historial_capital,
-                fill='tozeroy',
-                line=dict(color='cyan'),
-                name='Capital'
-            ))
-            
-            fig_backtest.update_layout(
-                title="Evolución del Capital",
-                xaxis_title="Fecha",
-                yaxis_title="Capital ($)",
-                template="plotly_dark",
-                height=400
-            )
-            
-            st.plotly_chart(fig_backtest, use_container_width=True)
-            
-            # Tabla de trades
             if trades:
-                st.markdown("---")
-                st.subheader("📜 Historial de Operaciones")
-                
-                df_trades = pd.DataFrame(trades)
-                
-                # Calcular estadísticas
-                trades_compra = df_trades[df_trades['Tipo'] == '🟢 COMPRA']
-                trades_venta = df_trades[df_trades['Tipo'] == '🔴 VENTA']
-                
-                if not trades_venta.empty and 'P/L %' in trades_venta.columns:
-                    # Convertir P/L % a numérico
-                    pnl_values = trades_venta['P/L %'].str.rstrip('%').astype(float)
-                    trades_ganadores = (pnl_values > 0).sum()
-                    trades_perdedores = (pnl_values < 0).sum()
-                    win_rate = (trades_ganadores / len(pnl_values)) * 100 if len(pnl_values) > 0 else 0
-                    
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        st.metric("Trades Ganadores", trades_ganadores)
-                    
-                    with col2:
-                        st.metric("Trades Perdedores", trades_perdedores)
-                    
-                    with col3:
-                        st.metric("Win Rate", f"{win_rate:.1f}%")
-                
-                st.dataframe(
-                    df_trades.sort_values(by="Fecha", ascending=False),
-                    use_container_width=True,
-                    hide_index=True
-                )
+                st.write("### 📜 Bitácora de Operaciones")
+                st.dataframe(pd.DataFrame(trades).sort_values(by="Fecha", ascending=False), use_container_width=True, hide_index=True)
 
 # ============================================================================
 # TAB 5: SCANNER MULTI-ACTIVO
