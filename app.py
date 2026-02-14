@@ -266,9 +266,6 @@ with tab1:
         show_signals=False
     )
     st.plotly_chart(fig, use_container_width=True)
-
-    # Dentro de with tab1:
-    st.plotly_chart(fig, use_container_width=True)
     
     st.markdown("---")
     if st.button("🔮 Consultar al Oráculo (Análisis Profundo)"):
@@ -331,10 +328,6 @@ with tab1:
 
 with tab2:
     st.header("📈 Análisis Técnico Detallado")
-    
-    # Información del régimen de mercado
-    with st.spinner("Analizando contexto macro..."):
-        market_regime = fetcher.get_market_regime()
     
     regime = market_regime['regime']
     regime_color = "#27ae60" if "ON" in regime else "#e74c3c"
