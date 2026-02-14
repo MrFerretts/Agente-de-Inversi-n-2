@@ -686,6 +686,7 @@ with tab4:
 with tab5:
     st.header("🔍 Scanner de Múltiples Activos")
     
+    # Botón para activar el proceso
     if st.button("🚀 Iniciar Escaneo Completo"):
         resultados = []
         progress_bar = st.progress(0)
@@ -693,18 +694,11 @@ with tab5:
         
         for i, symbol in enumerate(lista_completa):
             status_text.text(f"Analizando {symbol}...")
-            
             try:
-                # Obtener datos
                 symbol_data = fetcher.get_portfolio_data([symbol], period='6mo')[symbol]
-                
                 if not symbol_data.empty:
-                    # Procesar indicadores
                     symbol_processed = DataProcessor.prepare_full_analysis(symbol_data, analyzer)
-                    
-                    # Análisis técnico
                     symbol_analysis = analyzer.analyze_asset(symbol_processed, symbol)
-                    
                     if symbol_analysis:
                         resultados.append({
                             'Ticker': symbol,
@@ -716,75 +710,42 @@ with tab5:
                             'Score': symbol_analysis['signals']['score'],
                             'Recomendación': symbol_analysis['signals']['recommendation']
                         })
-            
             except Exception as e:
                 st.warning(f"Error con {symbol}: {str(e)}")
-            
             progress_bar.progress((i + 1) / len(lista_completa))
         
         status_text.text("✅ Escaneo completo")
-        
         if resultados:
-            df_resultados = pd.DataFrame(resultados)
-            df_resultados = df_resultados.sort_values('Score', ascending=False)
+            # GUARDAR EN SESSION STATE PARA QUE NO SE BORRE
+            st.session_state.scanner_results = pd.DataFrame(resultados).sort_values('Score', ascending=False)
+
+    # MOSTRAR RESULTADOS (Fuera del bloque del botón de escaneo)
+    if 'scanner_results' in st.session_state:
+        df_res = st.session_state.scanner_results
+        st.markdown("---")
+        st.subheader("📊 Resultados del Escaneo")
+        
+        def colorear_recomendacion(val):
+            if 'COMPRA' in val: return 'background-color: #27ae60; color: white'
+            if 'VENTA' in val: return 'background-color: #e74c3c; color: white'
+            return 'background-color: #95a5a6; color: white'
             
-            # Guardar en session state
-            st.session_state.scanner_results = df_resultados
-            
-            st.markdown("---")
-            st.subheader("📊 Resultados del Escaneo")
-            
-            # Aplicar colores condicionales
-            def colorear_recomendacion(val):
-                if 'COMPRA FUERTE' in val:
-                    return 'background-color: #27ae60; color: white; font-weight: bold'
-                elif 'COMPRA' in val:
-                    return 'background-color: #2ecc71; color: white'
-                elif 'VENTA FUERTE' in val:
-                    return 'background-color: #e74c3c; color: white; font-weight: bold'
-                elif 'VENTA' in val:
-                    return 'background-color: #ec7063; color: white'
-                else:
-                    return 'background-color: #95a5a6; color: white'
-            
-            styled_df = df_resultados.style.applymap(
-                colorear_recomendacion,
-                subset=['Recomendación']
-            )
-            
-            st.dataframe(styled_df, use_container_width=True, hide_index=True)
-            
-            # Gráfico comparativo
-            st.markdown("---")
-            st.subheader("📊 Comparativa Visual")
-            
-            # Crear diccionario de análisis para el gráfico
-            analyses_dict = {}
-            for _, row in df_resultados.iterrows():
-                analyses_dict[row['Ticker']] = {
-                    'signals': {
-                        'score': row['Score'],
-                        'recommendation': row['Recomendación']
-                    }
-                }
-            
-            fig_comparison = chart_builder.create_performance_comparison(analyses_dict)
-            st.plotly_chart(fig_comparison, use_container_width=True)
-            
-            # Botón para enviar reporte
-            st.markdown("---")
-            if st.button("📧 Enviar Reporte por Email"):
-                with st.spinner("Enviando reporte..."):
-                    # Obtener contexto macro
-                    macro_info = fetcher.get_market_regime()
-                    
-                    # Enviar reporte
-                    notifier.send_full_report(
-                        df_summary=df_resultados,
-                        macro_info=macro_info
-                    )
-                    
-                    st.success("✅ Reporte enviado correctamente")
+        st.dataframe(df_res.style.applymap(colorear_recomendacion, subset=['Recomendación']), use_container_width=True, hide_index=True)
+        
+        # Gráfico comparativo
+        st.markdown("---")
+        st.subheader("📊 Comparativa Visual")
+        analyses_dict = {row['Ticker']: {'signals': {'score': row['Score'], 'recommendation': row['Recomendación']}} for _, row in df_res.iterrows()}
+        st.plotly_chart(chart_builder.create_performance_comparison(analyses_dict), use_container_width=True)
+        
+        # BOTÓN DE EMAIL CORREGIDO (Ahora es independiente)
+        st.markdown("---")
+        if st.button("📧 Enviar Reporte por Email"):
+            with st.spinner("Enviando reporte..."):
+                macro_info = fetcher.get_market_regime()
+                # El Notifier ahora recibe los datos guardados en la sesión
+                notifier.send_full_report(df_summary=df_res, macro_info=macro_info)
+                st.success("✅ ¡Reporte enviado correctamente!")
 
 # ============================================================================
 # FOOTER
