@@ -264,19 +264,18 @@ with tab1:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # ... (debajo del gráfico de Plotly en tab1)
-    st.markdown("---")
-    if st.button("🔮 Consultar al Oráculo (Groq Speed)"):
-        with st.spinner("Pensando a la velocidad de la luz..."):
-            # Llamamos a la función que pegaste arriba
-            respuesta = consultar_ia_groq(
-                ticker, 
-                signals['price'], 
-                signals['rsi'], 
-                signals['macd_hist'], 
-                analysis['signals']['recommendation']
-            )
-            st.info(respuesta)
+    # Dentro de with tab1, donde estaba el botón del oráculo [cite: 93, 105]
+if st.button("🔮 Consultar al Oráculo (Análisis Profundo)"):
+    with st.spinner("Realizando análisis quant multidimensional..."):
+        # Ahora pasamos el objeto completo de análisis y el régimen de mercado [cite: 1, 85]
+        respuesta = consultar_ia_groq(
+            ticker, 
+            analysis,       # El diccionario completo con los 13 indicadores [cite: 85]
+            signals,        # Precios y cambios recientes 
+            market_regime   # VIX y tendencia de SPY 
+        )
+        st.markdown(f"### 🤖 Análisis Pro de Groq")
+        st.info(respuesta)
     
     # Resumen de señales
     st.markdown("---")
