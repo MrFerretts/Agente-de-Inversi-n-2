@@ -386,16 +386,15 @@ st.sidebar.caption(f"📊 Caché: {cache_stats['valid_items']}/{cache_stats['tot
 st.title(f"🦆 Análisis de {ticker}")
 
 # Intentar recuperar datos del caché
-cached_data = state_mgr.get_cached_data(ticker, 'market_data', period='2y')
+cached_data = state_mgr.get_cached_data(ticker, 'market_data', period='5y') # 👈 CAMBIA A 5y
 
 if cached_data is not None:
     data = cached_data
-    st.caption("✅ Datos recuperados del caché")
 else:
-    with st.spinner(f"Cargando datos de {ticker}..."):
-        data = fetcher.get_portfolio_data([ticker], period='1y')[ticker]
+    with st.spinner(f"Descargando historial profundo de {ticker}..."):
+        data = fetcher.get_portfolio_data([ticker], period='5y')[ticker] # 👈 CAMBIA A 5y
         if not data.empty:
-            state_mgr.set_cached_data(ticker, 'market_data', data, period='1y')
+            state_mgr.set_cached_data(ticker, 'market_data', data, period='5y')
 
 if data.empty:
     st.error(f"No se pudieron cargar datos para {ticker}")
