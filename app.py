@@ -684,69 +684,85 @@ with tab4:
 # ============================================================================
 
 with tab5:
-    st.header("🔍 Scanner de Múltiples Activos")
+    st.header("🔍 Scanner Maestro de 13 Indicadores")
     
-    # Botón para activar el proceso
-    if st.button("🚀 Iniciar Escaneo Completo"):
+    if st.button("🚀 Iniciar Escaneo de Alta Precisión"):
         resultados = []
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         for i, symbol in enumerate(lista_completa):
             status_text.text(f"Analizando {symbol}...")
+            
             try:
+                # Obtener y procesar datos
                 symbol_data = fetcher.get_portfolio_data([symbol], period='6mo')[symbol]
+                
                 if not symbol_data.empty:
+                    # Pre-procesar todos los indicadores en el DataFrame [cite: 31]
                     symbol_processed = DataProcessor.prepare_full_analysis(symbol_data, analyzer)
+                    
+                    # Análisis técnico profundo [cite: 22]
                     symbol_analysis = analyzer.analyze_asset(symbol_processed, symbol)
+                    
                     if symbol_analysis:
+                        ind = symbol_analysis['indicators'] # Acceso al diccionario de indicadores 
+                        
+                        # Captura de los 13 indicadores + métricas clave
                         resultados.append({
                             'Ticker': symbol,
-                            'Precio': f"${symbol_analysis['price']['current']:.2f}",
+                            'Precio': round(symbol_analysis['price']['current'], 2),
                             'Cambio %': f"{symbol_analysis['price']['change_pct']:.2f}%",
-                            'RSI': f"{symbol_analysis['indicators']['rsi']:.1f}",
-                            'ADX': f"{symbol_analysis['indicators']['adx']:.1f}",
-                            'RVOL': f"{symbol_analysis['indicators']['rvol']:.2f}x",
+                            'SMA20': round(symbol_processed['SMA20'].iloc[-1], 2),
+                            'SMA50': round(symbol_processed['SMA50'].iloc[-1], 2),
+                            'RSI': round(ind['rsi'], 2),
+                            'StochRSI': round(ind['stoch_rsi'], 2),
+                            'ADX': round(ind['adx'], 2),
+                            'ATR': round(ind['atr'], 2),
+                            'MACD': round(ind['macd'], 4),
+                            'MACD_Hist': round(ind['macd_hist'], 4),
+                            'RVOL': f"{ind['rvol']:.2f}x",
+                            'BB_Upper': round(ind['bb_upper'], 2),
+                            'BB_Lower': round(ind['bb_lower'], 2),
                             'Score': symbol_analysis['signals']['score'],
                             'Recomendación': symbol_analysis['signals']['recommendation']
                         })
+            
             except Exception as e:
                 st.warning(f"Error con {symbol}: {str(e)}")
+            
             progress_bar.progress((i + 1) / len(lista_completa))
         
         status_text.text("✅ Escaneo completo")
+        
         if resultados:
-            # GUARDAR EN SESSION STATE PARA QUE NO SE BORRE
+            # Guardar en session state para persistencia 
             st.session_state.scanner_results = pd.DataFrame(resultados).sort_values('Score', ascending=False)
 
-    # MOSTRAR RESULTADOS (Fuera del bloque del botón de escaneo)
+    # Mostrar la tabla completa si existen resultados 
     if 'scanner_results' in st.session_state:
         df_res = st.session_state.scanner_results
         st.markdown("---")
-        st.subheader("📊 Resultados del Escaneo")
+        st.subheader(f"📊 Reporte Detallado ({len(df_res)} activos)")
         
+        # Estilo dinámico para la recomendación 
         def colorear_recomendacion(val):
             if 'COMPRA' in val: return 'background-color: #27ae60; color: white'
             if 'VENTA' in val: return 'background-color: #e74c3c; color: white'
             return 'background-color: #95a5a6; color: white'
             
-        st.dataframe(df_res.style.applymap(colorear_recomendacion, subset=['Recomendación']), use_container_width=True, hide_index=True)
+        st.dataframe(
+            df_res.style.applymap(colorear_recomendacion, subset=['Recomendación']), 
+            use_container_width=True, 
+            hide_index=True
+        )
         
-        # Gráfico comparativo
-        st.markdown("---")
-        st.subheader("📊 Comparativa Visual")
-        analyses_dict = {row['Ticker']: {'signals': {'score': row['Score'], 'recommendation': row['Recomendación']}} for _, row in df_res.iterrows()}
-        st.plotly_chart(chart_builder.create_performance_comparison(analyses_dict), use_container_width=True)
-        
-        # BOTÓN DE EMAIL CORREGIDO (Ahora es independiente)
-        st.markdown("---")
-        if st.button("📧 Enviar Reporte por Email"):
+        # Botón de email actualizado para enviar la tabla de 13 columnas [cite: 20, 21]
+        if st.button("📧 Enviar Tabla Completa por Email"):
             with st.spinner("Enviando reporte..."):
                 macro_info = fetcher.get_market_regime()
-                # El Notifier ahora recibe los datos guardados en la sesión
                 notifier.send_full_report(df_summary=df_res, macro_info=macro_info)
-                st.success("✅ ¡Reporte enviado correctamente!")
-
+                st.success("✅ ¡Reporte de 13 indicadores enviado!")
 # ============================================================================
 # FOOTER
 # ============================================================================
