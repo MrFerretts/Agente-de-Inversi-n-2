@@ -639,6 +639,7 @@ class TechnicalAnalyzer:
         elif price['current'] >= indicators['bb_upper'] * 0.99:
             score -= 5
             sell_signals.append("🎯 Precio en banda superior (Bollinger)")
+        
         # ===================================================================
         # 7️⃣ DETECCIÓN DE DIVERGENCIAS (±20 puntos)
         # ===================================================================
@@ -693,3 +694,4 @@ class TechnicalAnalyzer:
                 'Recommendation': analysis['signals']['recommendation']
             })
         return pd.DataFrame(comparison).sort_values('Score', ascending=False)
+
