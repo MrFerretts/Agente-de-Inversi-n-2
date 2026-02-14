@@ -352,25 +352,6 @@ if st.sidebar.button("🗑️ Eliminar"):
     state_mgr.invalidate_cache(ticker)
     st.rerun()
 
-# ============================================================================
-# 🤖 PASO C: MACHINE LEARNING (PÉGALO AQUÍ)
-# ============================================================================
-st.sidebar.markdown("---")
-st.sidebar.header("🤖 Machine Learning")
-
-if st.sidebar.button("🎓 Entrenar Modelo ML"):
-    with st.spinner(f"Entrenando modelo para {ticker}..."):
-        # Entrenar modelo usando los datos procesados actuales
-        model = train_ml_model_for_ticker(ticker, data_processed, prediction_days=5)
-        
-        if model:
-            # Guardar en el baúl que creamos en el paso B
-            st.session_state.ml_models[ticker] = model
-            st.sidebar.success(f"✅ Modelo entrenado para {ticker}")
-            st.sidebar.caption(f"Accuracy: {model.model_metrics['accuracy']*100:.1f}%")
-        else:
-            st.sidebar.error("❌ Error entrenando modelo")
-
 st.sidebar.markdown("---")
 # Configuración de riesgo
 st.sidebar.header("⚙️ Configuración de Riesgo")
@@ -1107,6 +1088,24 @@ with tab6:
                 del st.session_state.ml_models[ticker]
                 st.success("✅ Modelo eliminado")
                 st.rerun()
+
+# ============================================================================
+# 🤖 PASO C: MACHINE LEARNING (PÉGALO AQUÍ AHORA)
+# ============================================================================
+st.sidebar.markdown("---")
+st.sidebar.header("🤖 Machine Learning")
+
+if st.sidebar.button("🎓 Entrenar Modelo ML"):
+    with st.spinner(f"Entrenando cerebro para {ticker}..."):
+        # Ahora sí, data_processed ya existe y el modelo puede aprender de él
+        model = train_ml_model_for_ticker(ticker, data_processed, prediction_days=5)
+        
+        if model:
+            st.session_state.ml_models[ticker] = model
+            st.sidebar.success(f"✅ Modelo listo para {ticker}")
+            st.sidebar.caption(f"Accuracy: {model.model_metrics['accuracy']*100:.1f}%")
+        else:
+            st.sidebar.error("❌ Error entrenando modelo")
 
 # ============================================================================
 # MONITOR DE SEÑALES EN TIEMPO REAL (FUERA DE LAS TABS)
