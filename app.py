@@ -210,6 +210,9 @@ analysis = analyzer.analyze_asset(data_processed, ticker)
 # Extraer señales actuales
 signals = DataProcessor.get_latest_signals(data_processed)
 
+with st.spinner("Analizando contexto macro..."):
+    market_regime = fetcher.get_market_regime()
+
 # ============================================================================
 # TABS PRINCIPALES
 # ============================================================================
@@ -264,18 +267,21 @@ with tab1:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Dentro de with tab1, donde estaba el botón del oráculo [cite: 93, 105]
-if st.button("🔮 Consultar al Oráculo (Análisis Profundo)"):
-    with st.spinner("Realizando análisis quant multidimensional..."):
-        # Ahora pasamos el objeto completo de análisis y el régimen de mercado [cite: 1, 85]
-        respuesta = consultar_ia_groq(
-            ticker, 
-            analysis,       # El diccionario completo con los 13 indicadores [cite: 85]
-            signals,        # Precios y cambios recientes 
-            market_regime   # VIX y tendencia de SPY 
-        )
-        st.markdown(f"### 🤖 Análisis Pro de Groq")
-        st.info(respuesta)
+    # Dentro de with tab1:
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown("---")
+    if st.button("🔮 Consultar al Oráculo (Análisis Profundo)"):
+        with st.spinner("Realizando análisis quant multidimensional..."):
+            # Ahora la variable market_regime ya existe para este botón
+            respuesta = consultar_ia_groq(
+                ticker, 
+                analysis, 
+                signals, 
+                market_regime
+            )
+            st.markdown(f"### 🤖 Análisis Pro de Groq")
+            st.info(respuesta)
     
     # Resumen de señales
     st.markdown("---")
