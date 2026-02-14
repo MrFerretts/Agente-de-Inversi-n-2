@@ -20,6 +20,7 @@ from market_data import MarketDataFetcher
 from technical_analysis import TechnicalAnalyzer
 from notifications import NotificationManager
 from groq import Groq
+from ml_model import TradingMLModel, train_ml_model_for_ticker, get_ml_prediction, format_ml_output
 
 # ============================================================================
 # CONFIGURACIÓN INICIAL
@@ -55,6 +56,7 @@ if 'state_manager' not in st.session_state:
     st.session_state.fetcher = MarketDataFetcher(API_CONFIG)
     st.session_state.analyzer = TechnicalAnalyzer(TECHNICAL_INDICATORS)
     st.session_state.notifier = NotificationManager({'NOTIFICATIONS': NOTIFICATIONS})
+    st.session_state.ml_models = {}
 
 state_mgr = st.session_state.state_manager
 risk_mgr = st.session_state.risk_manager
@@ -348,8 +350,26 @@ if st.sidebar.button("🗑️ Eliminar"):
     state_mgr.invalidate_cache(ticker)
     st.rerun()
 
+# ============================================================================
+# 🤖 PASO C: MACHINE LEARNING (PÉGALO AQUÍ)
+# ============================================================================
 st.sidebar.markdown("---")
+st.sidebar.header("🤖 Machine Learning")
 
+if st.sidebar.button("🎓 Entrenar Modelo ML"):
+    with st.spinner(f"Entrenando modelo para {ticker}..."):
+        # Entrenar modelo usando los datos procesados actuales
+        model = train_ml_model_for_ticker(ticker, data_processed, prediction_days=5)
+        
+        if model:
+            # Guardar en el baúl que creamos en el paso B
+            st.session_state.ml_models[ticker] = model
+            st.sidebar.success(f"✅ Modelo entrenado para {ticker}")
+            st.sidebar.caption(f"Accuracy: {model.model_metrics['accuracy']*100:.1f}%")
+        else:
+            st.sidebar.error("❌ Error entrenando modelo")
+
+st.sidebar.markdown("---")
 # Configuración de riesgo
 st.sidebar.header("⚙️ Configuración de Riesgo")
 account_size = st.sidebar.number_input(
@@ -414,12 +434,13 @@ with st.spinner("Analizando contexto macro..."):
 # TABS PRINCIPALES
 # ============================================================================
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Dashboard Principal",
     "📈 Análisis Técnico Avanzado",
     "💰 Risk Management",
     "🧪 Backtesting Pro",
-    "🔍 Scanner Multi-Activo"
+    "🔍 Scanner Multi-Activo",
+    "🤖 Machine Learning"  # ← NUEVO
 ])
 
 # ============================================================================
@@ -523,6 +544,55 @@ with tab1:
     st.markdown(f"### 🎯 Score Total: <span style='color:{score_color}; font-size:2em;'>{score}</span>", 
                 unsafe_allow_html=True)
     st.caption(f"Confianza: {analysis['signals']['confidence']}")
+
+    # ============================================================================
+    # 🤖 PASO D: PREDICCIÓN MACHINE LEARNING (PÉGALO AQUÍ)
+    # ============================================================================
+    st.markdown("---")
+    st.subheader("🤖 Predicción Machine Learning (Próximos 5 días)")
+    
+    # Verificar si ya entrenaste el modelo para este ticker en el sidebar
+    if ticker in st.session_state.ml_models:
+        model = st.session_state.ml_models[ticker]
+        
+        # Obtener la predicción basada en los datos actuales
+        ml_prediction = get_ml_prediction(model, data_processed)
+        
+        if ml_prediction:
+            # Diseño de métricas tipo Terminal Profesional
+            col_ml1, col_ml2, col_ml3, col_ml4 = st.columns(4)
+            
+            with col_ml1:
+                st.metric(
+                    "Prob. Alcista", 
+                    f"{ml_prediction['probability_up']*100:.1f}%",
+                    delta=f"{(ml_prediction['probability_up'] - 0.5)*100:+.1f}% vs neutro"
+                )
+            
+            with col_ml2:
+                st.metric("Prob. Bajista", f"{ml_prediction['probability_down']*100:.1f}%")
+            
+            with col_ml3:
+                # Color dinámico para la confianza
+                conf_icon = "🟢" if ml_prediction['confidence'] > 0.7 else "🟡" if ml_prediction['confidence'] > 0.6 else "🔴"
+                st.metric("Confianza ML", f"{conf_icon} {ml_prediction['confidence_level']}")
+            
+            with col_ml4:
+                st.metric("Veredicto ML", ml_prediction['recommendation'])
+            
+            # Análisis profundo y explicabilidad
+            with st.expander("📊 Ver Razonamiento del Modelo ML"):
+                st.markdown(format_ml_output(ml_prediction, ticker))
+                
+                # Mostrar qué indicadores pesaron más en esta decisión
+                if st.checkbox("Mostrar importancia de indicadores (Features)"):
+                    feat_imp = model.get_feature_importance().head(10)
+                    st.dataframe(feat_imp, use_container_width=True)
+        else:
+            st.warning("⚠️ El modelo no pudo generar una predicción con los datos actuales.")
+    else:
+        # Mensaje amigable si el usuario olvidó entrenar el modelo
+        st.info(f"💡 Para ver la predicción de IA, primero haz clic en '🎓 Entrenar Modelo ML' en la barra lateral.")
 
 # ============================================================================
 # TAB 2: ANÁLISIS TÉCNICO AVANZADO
@@ -925,6 +995,116 @@ with tab5:
                 macro_info = fetcher.get_market_regime()
                 notifier.send_full_report(df_summary=df_res, macro_info=macro_info)
                 st.success("✅ ¡Reporte de 13 indicadores enviado!")
+
+with tab6:
+    st.header(f"🤖 Machine Learning - {ticker}")
+    
+    if ticker not in st.session_state.ml_models:
+        st.info("ℹ️ No hay modelo entrenado para este ticker.")
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🎓 Entrenar Modelo Ahora", use_container_width=True):
+                with st.spinner("Entrenando modelo..."):
+                    model = train_ml_model_for_ticker(ticker, data_processed, prediction_days=5)
+                    
+                    if model:
+                        st.session_state.ml_models[ticker] = model
+                        st.success("✅ Modelo entrenado!")
+                        st.rerun()
+    else:
+        model = st.session_state.ml_models[ticker]
+        
+        # Información del modelo
+        st.subheader("📊 Información del Modelo")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Accuracy", f"{model.model_metrics['accuracy']*100:.1f}%")
+        
+        with col2:
+            st.metric("Precision", f"{model.model_metrics['precision']*100:.1f}%")
+        
+        with col3:
+            st.metric("Recall", f"{model.model_metrics['recall']*100:.1f}%")
+        
+        with col4:
+            st.metric("F1-Score", f"{model.model_metrics['f1_score']*100:.1f}%")
+        
+        st.caption(f"Entrenado el: {model.training_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        st.caption(f"Datos de entrenamiento: {model.model_metrics['train_size']} muestras")
+        
+        st.markdown("---")
+        
+        # Predicción actual
+        st.subheader("🎯 Predicción Actual")
+        
+        ml_prediction = get_ml_prediction(model, data_processed)
+        
+        if ml_prediction:
+            ml_output = format_ml_output(ml_prediction, ticker)
+            st.markdown(ml_output)
+            
+            st.markdown("---")
+            
+            # Feature importance
+            st.subheader("🏆 Features Más Importantes")
+            
+            feat_imp = model.get_feature_importance()
+            
+            # Gráfico de barras
+            import plotly.graph_objects as go
+            
+            fig = go.Figure()
+            
+            top_10 = feat_imp.head(10)
+            
+            fig.add_trace(go.Bar(
+                x=top_10['importance'] * 100,
+                y=top_10['feature'],
+                orientation='h',
+                marker=dict(
+                    color=top_10['importance'],
+                    colorscale='Viridis'
+                )
+            ))
+            
+            fig.update_layout(
+                title="Top 10 Features por Importancia",
+                xaxis_title="Importancia (%)",
+                yaxis_title="Feature",
+                height=400,
+                template="plotly_dark"
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Tabla completa
+            if st.expander("📋 Ver todas las features"):
+                st.dataframe(feat_imp, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # Opciones de re-entrenamiento
+        st.subheader("⚙️ Opciones")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("🔄 Re-entrenar Modelo"):
+                with st.spinner("Re-entrenando..."):
+                    model = train_ml_model_for_ticker(ticker, data_processed, prediction_days=5)
+                    if model:
+                        st.session_state.ml_models[ticker] = model
+                        st.success("✅ Modelo re-entrenado!")
+                        st.rerun()
+        
+        with col2:
+            if st.button("🗑️ Eliminar Modelo"):
+                del st.session_state.ml_models[ticker]
+                st.success("✅ Modelo eliminado")
+                st.rerun()
 
 # ============================================================================
 # MONITOR DE SEÑALES EN TIEMPO REAL (FUERA DE LAS TABS)
