@@ -695,35 +695,31 @@ with tab5:
             status_text.text(f"Analizando {symbol}...")
             
             try:
-                # Obtener y procesar datos
+                # Obtener y procesar datos con el StateManager
                 symbol_data = fetcher.get_portfolio_data([symbol], period='6mo')[symbol]
                 
                 if not symbol_data.empty:
-                    # Pre-procesar todos los indicadores en el DataFrame [cite: 31]
                     symbol_processed = DataProcessor.prepare_full_analysis(symbol_data, analyzer)
-                    
-                    # Análisis técnico profundo [cite: 22]
                     symbol_analysis = analyzer.analyze_asset(symbol_processed, symbol)
                     
                     if symbol_analysis:
-                        ind = symbol_analysis['indicators'] # Acceso al diccionario de indicadores 
+                        ind = symbol_analysis['indicators']
                         
-                        # Captura de los 13 indicadores + métricas clave
+                        # Recolección de los 13 indicadores
                         resultados.append({
                             'Ticker': symbol,
-                            'Precio': round(symbol_analysis['price']['current'], 2),
-                            'Cambio %': f"{symbol_analysis['price']['change_pct']:.2f}%",
-                            'SMA20': round(symbol_processed['SMA20'].iloc[-1], 2),
-                            'SMA50': round(symbol_processed['SMA50'].iloc[-1], 2),
-                            'RSI': round(ind['rsi'], 2),
-                            'StochRSI': round(ind['stoch_rsi'], 2),
-                            'ADX': round(ind['adx'], 2),
-                            'ATR': round(ind['atr'], 2),
-                            'MACD': round(ind['macd'], 4),
-                            'MACD_Hist': round(ind['macd_hist'], 4),
-                            'RVOL': f"{ind['rvol']:.2f}x",
-                            'BB_Upper': round(ind['bb_upper'], 2),
-                            'BB_Lower': round(ind['bb_lower'], 2),
+                            'Precio': symbol_analysis['price']['current'],
+                            'Cambio %': symbol_analysis['price']['change_pct'],
+                            'SMA20': symbol_processed['SMA20'].iloc[-1],
+                            'SMA50': symbol_processed['SMA50'].iloc[-1],
+                            'RSI': ind.get('rsi', 0),
+                            'StochRSI': ind.get('stoch_rsi', 0),
+                            'ADX': ind.get('adx', 0),
+                            'ATR': ind.get('atr', 0),
+                            'MACD_H': ind.get('macd_hist', 0),
+                            'RVOL': ind.get('rvol', 0),
+                            'BB_Up': ind.get('bb_upper', 0),
+                            'BB_Low': ind.get('bb_lower', 0),
                             'Score': symbol_analysis['signals']['score'],
                             'Recomendación': symbol_analysis['signals']['recommendation']
                         })
@@ -736,29 +732,33 @@ with tab5:
         status_text.text("✅ Escaneo completo")
         
         if resultados:
-            # Guardar en session state para persistencia 
+            # Guardamos en session_state para que los datos no se borren al enviar el correo
             st.session_state.scanner_results = pd.DataFrame(resultados).sort_values('Score', ascending=False)
 
-    # Mostrar la tabla completa si existen resultados 
+    # MOSTRAR RESULTADOS CON FORMATO DE 2 DECIMALES
     if 'scanner_results' in st.session_state:
         df_res = st.session_state.scanner_results
         st.markdown("---")
         st.subheader(f"📊 Reporte Detallado ({len(df_res)} activos)")
         
-        # Estilo dinámico para la recomendación 
         def colorear_recomendacion(val):
             if 'COMPRA' in val: return 'background-color: #27ae60; color: white'
             if 'VENTA' in val: return 'background-color: #e74c3c; color: white'
             return 'background-color: #95a5a6; color: white'
             
+        # Aplicamos precisión de 2 decimales a todas las columnas numéricas
+        columnas_num = df_res.select_dtypes(include=['float64', 'int64']).columns
+        
         st.dataframe(
-            df_res.style.applymap(colorear_recomendacion, subset=['Recomendación']), 
+            df_res.style.applymap(colorear_recomendacion, subset=['Recomendación'])
+            .format(precision=2, subset=columnas_num), 
             use_container_width=True, 
             hide_index=True
         )
         
-        # Botón de email actualizado para enviar la tabla de 13 columnas [cite: 20, 21]
-        if st.button("📧 Enviar Tabla Completa por Email"):
+        # Botón de Email corregido para usar los datos guardados
+        st.markdown("---")
+        if st.button("📧 Enviar Reporte por Email"):
             with st.spinner("Enviando reporte..."):
                 macro_info = fetcher.get_market_regime()
                 notifier.send_full_report(df_summary=df_res, macro_info=macro_info)
