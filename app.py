@@ -302,6 +302,45 @@ IMPORTANTE:
     except Exception as e:
         return f"⚠️ Error en análisis Groq: {str(e)}"
 
+def analizar_backtest_con_ia(ticker, resultados, trades):
+    """
+    Usa Llama 3.3 para realizar una autopsia profesional de los resultados del backtest.
+    """
+    try:
+        from groq import Groq
+        client = Groq(api_key=API_CONFIG['groq_api_key'])
+        
+        # Resumen de los trades para que la IA no se pierda en datos infinitos
+        ultimos_trades = str(trades[-10:]) if trades else "Sin trades realizados"
+        
+        prompt = f"""
+        Actúa como un Head of Trading analizando el desempeño de un algoritmo en {ticker}.
+        
+        RESULTADOS DEL BACKTEST:
+        - Capital Inicial: ${resultados['inicial']:.2f}
+        - Valor Final: ${resultados['final']:.2f}
+        - Rendimiento Total: {resultados['rendimiento']:.2f}%
+        - Número de Trades: {resultados['n_trades']}
+        
+        MUESTRA DE OPERACIONES:
+        {ultimos_trades}
+        
+        TAREA:
+        1. Explica brevemente por qué la estrategia tuvo éxito o fracasó en este activo.
+        2. Analiza si el 'Motivo' de salida más común (TP o SL) sugiere que los parámetros están bien calibrados.
+        3. Da una recomendación específica para mejorar el rendimiento (ej: ajustar el RSI, mover el Stop Loss, etc.).
+        4. Tono crítico, constructivo y muy técnico. Máximo 3 párrafos.
+        """
+        
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile", #
+            messages=[{"role": "system", "content": "Eres un mentor de trading cuantitativo."},
+                      {"role": "user", "content": prompt}],
+            temperature=0.4
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"⚠️ No se pudo generar la bitácora de IA: {str(e)}"
         
 # Watchlist management
 import json
@@ -454,6 +493,26 @@ with tab1:
         rec = analysis['signals']['recommendation']
         rec_color = "🟢" if "COMPRA" in rec else "🔴" if "VENTA" in rec else "🟡"
         st.metric("Señal", rec, rec_color)
+
+# ============================================================================
+            # 🧠 AQUÍ PEGAS LA BITÁCORA DE IA
+            # ============================================================================
+            st.markdown("---")
+            if st.button("🤖 Generar Bitácora de IA (Análisis de Estrategia)"):
+                with st.spinner("Analizando cada trade y comparando con el mercado..."):
+                    # Preparamos los datos para que la IA los entienda
+                    res_dict = {
+                        'inicial': backtest_capital,
+                        'final': valor_final,
+                        'rendimiento': rendimiento_total,
+                        'n_trades': len(trades)
+                    }
+                    
+                    # Llamamos a la función que pusiste arriba
+                    bitacora = analizar_backtest_con_ia(ticker, res_dict, trades)
+                    
+                    st.markdown("### 📜 Autopsia del Oráculo Quant")
+                    st.info(bitacora)
     
     st.markdown("---")
     
