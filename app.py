@@ -19,6 +19,7 @@ from ui.chart_builder import ChartBuilder
 from market_data import MarketDataFetcher
 from technical_analysis import TechnicalAnalyzer
 from notifications import NotificationManager
+from groq import Groq
 
 # ============================================================================
 # CONFIGURACIÓN INICIAL
@@ -62,6 +63,21 @@ fetcher = st.session_state.fetcher
 analyzer = st.session_state.analyzer
 notifier = st.session_state.notifier
 
+def consultar_ia_groq(ticker, precio, rsi, macd, recomendacion):
+    try:
+        # Asegúrate de que 'groq_api_key' esté en tus Secrets bajo [API_CONFIG]
+        client = Groq(api_key=API_CONFIG['groq_api_key'])
+        prompt = f"Como experto quant de San Pedro, analiza {ticker}: Precio {precio}, RSI {rsi}, MACD {macd}, Rec {recomendacion} en 3 frases."
+
+        completion = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+            max_tokens=150
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"⚠️ Error con Groq: {str(e)}"
 # Watchlist management
 import json
 FILE_PATH = "data/watchlist.json"
@@ -223,6 +239,20 @@ with tab1:
         show_signals=False
     )
     st.plotly_chart(fig, use_container_width=True)
+
+    # ... (debajo del gráfico de Plotly en tab1)
+    st.markdown("---")
+    if st.button("🔮 Consultar al Oráculo (Groq Speed)"):
+        with st.spinner("Pensando a la velocidad de la luz..."):
+            # Llamamos a la función que pegaste arriba
+            respuesta = consultar_ia_groq(
+                ticker, 
+                signals['price'], 
+                signals['rsi'], 
+                signals['macd_hist'], 
+                analysis['signals']['recommendation']
+            )
+            st.info(respuesta)
     
     # Resumen de señales
     st.markdown("---")
