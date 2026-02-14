@@ -65,12 +65,14 @@ notifier = st.session_state.notifier
 
 def consultar_ia_groq(ticker, precio, rsi, macd, recomendacion):
     try:
-        # Asegúrate de que 'groq_api_key' esté en tus Secrets bajo [API_CONFIG]
+        from groq import Groq
         client = Groq(api_key=API_CONFIG['groq_api_key'])
+        
+        # ACTUALIZACIÓN: Usamos llama-3.3-70b-versatile que es el estándar actual
         prompt = f"Como experto quant de San Pedro, analiza {ticker}: Precio {precio}, RSI {rsi}, MACD {macd}, Rec {recomendacion} en 3 frases."
-
+        
         completion = client.chat.completions.create(
-            model="llama3-8b-8192",
+            model="llama-3.3-70b-versatile", # <--- MODELO ACTUALIZADO
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
             max_tokens=150
@@ -78,6 +80,7 @@ def consultar_ia_groq(ticker, precio, rsi, macd, recomendacion):
         return completion.choices[0].message.content
     except Exception as e:
         return f"⚠️ Error con Groq: {str(e)}"
+        
 # Watchlist management
 import json
 FILE_PATH = "data/watchlist.json"
