@@ -494,25 +494,6 @@ with tab1:
         rec_color = "🟢" if "COMPRA" in rec else "🔴" if "VENTA" in rec else "🟡"
         st.metric("Señal", rec, rec_color)
 
-# ============================================================================
-            # 🧠 AQUÍ PEGAS LA BITÁCORA DE IA
-            # ============================================================================
-            st.markdown("---")
-            if st.button("🤖 Generar Bitácora de IA (Análisis de Estrategia)"):
-                with st.spinner("Analizando cada trade y comparando con el mercado..."):
-                    # Preparamos los datos para que la IA los entienda
-                    res_dict = {
-                        'inicial': backtest_capital,
-                        'final': valor_final,
-                        'rendimiento': rendimiento_total,
-                        'n_trades': len(trades)
-                    }
-                    
-                    # Llamamos a la función que pusiste arriba
-                    bitacora = analizar_backtest_con_ia(ticker, res_dict, trades)
-                    
-                    st.markdown("### 📜 Autopsia del Oráculo Quant")
-                    st.info(bitacora)
     
     st.markdown("---")
     
@@ -941,6 +922,26 @@ with tab4:
             col_b.metric("Valor Final", f"${valor_final:,.2f}")
             col_c.metric("Rendimiento", f"{rendimiento_total:.2f}%", delta=f"{rendimiento_total:.2f}%")
             col_d.metric("Trades Totales", len(trades))
+
+            # ============================================================================
+            # 🧠 AQUÍ PEGAS LA BITÁCORA DE IA
+            # ============================================================================
+            st.markdown("---")
+            if st.button("🤖 Generar Bitácora de IA (Análisis de Estrategia)"):
+                with st.spinner("Analizando cada trade y comparando con el mercado..."):
+                    # Preparamos los datos para que la IA los entienda
+                    res_dict = {
+                        'inicial': backtest_capital,
+                        'final': valor_final,
+                        'rendimiento': rendimiento_total,
+                        'n_trades': len(trades)
+                    }
+                    
+                    # Llamamos a la función que pusiste arriba
+                    bitacora = analizar_backtest_con_ia(ticker, res_dict, trades)
+                    
+                    st.markdown("### 📜 Autopsia del Oráculo Quant")
+                    st.info(bitacora)
             
             # Gráfico de evolución
             fig_bt = go.Figure()
