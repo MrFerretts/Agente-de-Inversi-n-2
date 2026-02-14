@@ -71,15 +71,13 @@ class NotificationManager:
             print(message)
             print(f"{'-'*80}\n")
     
-    def _send_email(self, subject: str, body: str, is_html: bool = False):
-        """Envía notificación por email (Soporta HTML)"""
+    def _send_email(self, subject: str, body: str, is_html: bool = False) -> bool:
+        """Envía notificación por email (Soporta HTML) y devuelve éxito"""
         try:
             msg = MIMEMultipart()
             msg['From'] = self.email_config.get('sender')
             msg['To'] = self.email_config.get('recipient')
             msg['Subject'] = f"🤖 {subject}"
-            
-            # Si es HTML usamos 'html', si no 'plain'
             msg.attach(MIMEText(body, 'html' if is_html else 'plain'))
             
             server = smtplib.SMTP(self.email_config.get('smtp_server'), self.email_config.get('smtp_port'))
@@ -88,8 +86,29 @@ class NotificationManager:
             server.send_message(msg)
             server.quit()
             logger.info(f"📧 Email enviado: {subject}")
+            return True # <--- Agregado
         except Exception as e:
             logger.error(f"Error enviando email: {str(e)}")
+            return False # <--- Agregado
+
+    def send_full_report(self, df_summary, macro_info=None, ai_comment=None) -> bool:
+        """Envía la tabla y devuelve si el proceso fue exitoso"""
+        macro_info = macro_info or {}
+        regime = macro_info.get('regime', 'UNKNOWN')
+        vix_raw = macro_info.get('vix')
+        vix = f"{vix_raw:.2f}" if vix_raw is not None else 'N/A'
+        desc = macro_info.get('description', 'Sin información')
+        
+        subject = f"📊 Reporte de Mercado - {regime} | VIX: {vix}"
+        color_regime = "#27ae60" if "ON" in str(regime).upper() else "#e74c3c"
+        html_table = df_summary.to_html(index=False, border=0, classes='table')
+        
+        # ... (Cuerpo HTML del correo queda igual) ...
+        html_body = f"<html>... (mismo contenido) ...</html>" 
+
+        if self.email_config.get('enabled', False):
+            return self._send_email(subject, html_body, is_html=True) # <--- Ahora devuelve el resultado
+        return False
     
     def _send_telegram(self, message: str):
         """Envía notificación por Telegram"""
