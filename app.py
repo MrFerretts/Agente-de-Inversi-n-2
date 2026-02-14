@@ -466,20 +466,20 @@ with tab1:
     
     st.markdown("---")
     if st.button("🔮 Consultar al Oráculo (Análisis Profundo)"):
-    with st.spinner("Analizando contexto histórico..."):
-        # Obtener régimen de mercado
-        market_regime = fetcher.get_market_regime()
-        
-        # Llamar función mejorada (ahora con data_processed)
-        analisis_ia = consultar_ia_groq(
-            ticker=ticker,
-            analysis=analysis, 
-            signals=signals, 
-            market_regime=market_regime,
-            data_processed=data_processed  # ← NUEVO PARÁMETRO
-        )
-        
-        st.markdown(analisis_ia)  # Cambiado de st.info a st.markdown
+        with st.spinner("Analizando contexto histórico..."):
+            # Obtener régimen de mercado
+            market_regime = fetcher.get_market_regime()
+            
+            # Llamar función mejorada (ahora con data_processed)
+            analisis_ia = consultar_ia_groq(
+                ticker=ticker,
+                analysis=analysis, 
+                signals=signals, 
+                market_regime=market_regime,
+                data_processed=data_processed  # ← NUEVO PARÁMETRO
+            )
+            
+            st.markdown(analisis_ia)  # Cambiado de st.info a st.markdown
             
     
     # Resumen de señales
@@ -960,3 +960,4 @@ st.caption(f"""
 📊 {len(lista_completa)} activos monitoreados | 
 ⏱️ Última actualización: {datetime.now(pytz.timezone('America/Monterrey')).strftime('%d/%m/%Y %H:%M:%S')} (Monterrey)
 """)
+
