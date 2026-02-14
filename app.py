@@ -859,6 +859,41 @@ with tab4:
             precio_compra = 0
             historial_capital = []
             trades = []
+
+    # ✅ PASO 2: MOSTRAR RESULTADOS (Pégalo fuera del bloque del botón)
+    if 'backtest_results' in st.session_state and st.session_state.backtest_results['ticker'] == ticker:
+        res = st.session_state.backtest_results
+        
+        st.markdown("---")
+        col_a, col_b, col_c, col_d = st.columns(4)
+        col_a.metric("Capital Inicial", f"${res['capital_inicial']:,.0f}")
+        col_b.metric("Valor Final", f"${res['capital_final']:,.2f}")
+        col_c.metric("Rendimiento", f"{res['rendimiento']:.2f}%", delta=f"{res['rendimiento']:.2f}%")
+        col_d.metric("Trades Totales", len(res['trades']))
+        
+        # --- BOTÓN DE BITÁCORA DE IA (Ahora ya no se borrará nada al picarlo) ---
+        st.markdown("---")
+        if st.button("🤖 Generar Bitácora de IA"):
+            with st.spinner("Analizando estrategia..."):
+                datos_ia = {
+                    'inicial': res['capital_inicial'],
+                    'final': res['capital_final'],
+                    'rendimiento': res['rendimiento'],
+                    'n_trades': len(res['trades'])
+                }
+                bitacora = analizar_backtest_con_ia(ticker, datos_ia, res['trades'])
+                st.markdown("### 📜 Autopsia del Oráculo Quant")
+                st.info(bitacora)
+
+        # Gráfico de evolución
+        fig_bt = go.Figure()
+        fig_bt.add_trace(go.Scatter(x=data_processed.index[1:], y=res['historial'], fill='tozeroy', line=dict(color='cyan')))
+        fig_bt.update_layout(title="Evolución de tu Capital ($)", template="plotly_dark", height=400)
+        st.plotly_chart(fig_bt, use_container_width=True)
+        
+        if res['trades']:
+            st.write("### 📜 Bitácora de Operaciones")
+            st.dataframe(pd.DataFrame(res['trades']).sort_values(by="Fecha", ascending=False), use_container_width=True, hide_index=True)
             
             # --- ESTRATEGIA RESTAURADA (MODELO ANTERIOR) ---
             for i in range(1, len(data_processed)):
@@ -915,6 +950,16 @@ with tab4:
             # --- CÁLCULO DE RESULTADOS FINALES ---
             valor_final = capital if posicion == 0 else posicion * data_processed['Close'].iloc[-1]
             rendimiento_total = ((valor_final - backtest_capital) / backtest_capital) * 100
+
+            # ✅ GUARDA LOS RESULTADOS PARA QUE NO SE BORREN AL PICAR OTRO BOTÓN
+            st.session_state.backtest_results = {
+                'ticker': ticker,
+                'capital_final': valor_final,
+                'rendimiento': rendimiento_total,
+                'trades': trades,
+                'historial': historial_capital,
+                'capital_inicial': backtest_capital
+            }
             
             st.markdown("---")
             col_a, col_b, col_c, col_d = st.columns(4)
