@@ -386,7 +386,7 @@ st.sidebar.caption(f"📊 Caché: {cache_stats['valid_items']}/{cache_stats['tot
 st.title(f"🦆 Análisis de {ticker}")
 
 # Intentar recuperar datos del caché
-cached_data = state_mgr.get_cached_data(ticker, 'market_data', period='1y')
+cached_data = state_mgr.get_cached_data(ticker, 'market_data', period='2y')
 
 if cached_data is not None:
     data = cached_data
