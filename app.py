@@ -63,44 +63,241 @@ fetcher = st.session_state.fetcher
 analyzer = st.session_state.analyzer
 notifier = st.session_state.notifier
 
-def consultar_ia_groq(ticker, analysis, signals, market_regime):
+"""
+PROMPT MEJORADO DE GROQ - VERSION PRO
+Copiar esta función completa y reemplazar la actual en tu app.py
+"""
+
+def consultar_ia_groq(ticker, analysis, signals, market_regime, data_processed):
+    """
+    Versión mejorada con contexto histórico completo y análisis estructurado
+    
+    Args:
+        ticker: Símbolo del activo
+        analysis: Análisis técnico completo
+        signals: Señales actuales
+        market_regime: Contexto macro
+        data_processed: DataFrame con todos los indicadores
+    """
     try:
         from groq import Groq
         client = Groq(api_key=API_CONFIG['groq_api_key'])
         
-        # Extraemos datos profundos de tu motor de análisis 
+        # ====================================================================
+        # CALCULAR MÉTRICAS ADICIONALES DEL HISTORIAL
+        # ====================================================================
+        
+        # Performance reciente (últimos 20 días)
+        ultimo_mes = data_processed.tail(20)
+        retorno_20d = ((ultimo_mes['Close'].iloc[-1] / ultimo_mes['Close'].iloc[0]) - 1) * 100
+        
+        # Volatilidad anualizada
+        volatilidad_20d = ultimo_mes['Returns'].std() * (252 ** 0.5) * 100
+        
+        # Posición vs SMAs
+        precio_vs_sma20 = ((signals['price'] / ultimo_mes['SMA20'].iloc[-1]) - 1) * 100
+        precio_vs_sma50 = ((signals['price'] / ultimo_mes['SMA50'].iloc[-1]) - 1) * 100
+        
+        # Rango de 52 semanas
+        datos_52w = data_processed.tail(min(252, len(data_processed)))
+        max_52w = datos_52w['High'].max()
+        min_52w = datos_52w['Low'].min()
+        rango_52w = max_52w - min_52w
+        
+        # Niveles de Fibonacci
+        fib_236 = min_52w + (rango_52w * 0.236)
+        fib_382 = min_52w + (rango_52w * 0.382)
+        fib_500 = min_52w + (rango_52w * 0.500)
+        fib_618 = min_52w + (rango_52w * 0.618)
+        fib_786 = min_52w + (rango_52w * 0.786)
+        
+        # Posición en el rango de 52 semanas
+        posicion_en_rango = ((signals['price'] - min_52w) / rango_52w) * 100
+        
+        # Comparar volatilidad actual vs promedio
+        atr_promedio = data_processed['ATR'].tail(50).mean()
+        atr_actual = analysis['indicators']['atr']
+        volatilidad_ratio = (atr_actual / atr_promedio) if atr_promedio > 0 else 1
+        
+        # Momentum de 5 días
+        retorno_5d = data_processed['Close'].pct_change(5).iloc[-1] * 100
+        
+        # ====================================================================
+        # CONSTRUIR PROMPT ULTRA-DETALLADO
+        # ====================================================================
+        
         ind = analysis['indicators']
-        contexto = f"VIX: {market_regime['vix']:.2f}, Régimen: {market_regime['regime']}"
         
-        # Construimos un contexto técnico ultra-detallado [cite: 74, 86]
-        prompt = f"""
-        Actúa como un Senior Quantitative Researcher de un Hedge Fund. 
-        Analiza el activo {ticker} con los siguientes datos técnicos reales:
+        prompt = f"""Actúa como un Senior Quantitative Analyst de un hedge fund institucional.
+Analiza {ticker} con datos técnicos profundos en tiempo real:
+
+═══════════════════════════════════════════════════════════
+📊 CONTEXTO MACRO Y DE MERCADO
+═══════════════════════════════════════════════════════════
+• Régimen de Mercado: {market_regime['regime']}
+• VIX (Índice de Miedo): {market_regime['vix']:.2f}
+• SPY Trend: {market_regime.get('spy_trend', 'N/A')}
+• Descripción: {market_regime.get('description', 'N/A')}
+
+═══════════════════════════════════════════════════════════
+💰 PRECIO Y PERFORMANCE
+═══════════════════════════════════════════════════════════
+• Precio Actual: ${signals['price']:.2f}
+• Cambio Intraday: {signals['price_change_pct']:+.2f}%
+• Performance 20D: {retorno_20d:+.2f}%
+• Performance 5D: {retorno_5d:+.2f}%
+
+═══════════════════════════════════════════════════════════
+📈 ANÁLISIS DE TENDENCIA
+═══════════════════════════════════════════════════════════
+• Tendencia Actual: {signals['trend']} ({signals['trend_strength']})
+• vs SMA20: {precio_vs_sma20:+.2f}%
+• vs SMA50: {precio_vs_sma50:+.2f}%
+• ADX (Fuerza): {ind['adx']:.1f}
+• Interpretación ADX: {"Tendencia FUERTE" if ind['adx'] > 25 else "Mercado LATERAL"}
+
+═══════════════════════════════════════════════════════════
+⚡ MOMENTUM E INDICADORES
+═══════════════════════════════════════════════════════════
+• RSI(14): {ind['rsi']:.1f} - {"SOBRECOMPRA" if ind['rsi'] > 70 else "SOBREVENTA" if ind['rsi'] < 30 else "NEUTRAL"}
+• Stochastic RSI: {ind['stoch_rsi']:.2f} - {"Alto" if ind['stoch_rsi'] > 0.8 else "Bajo" if ind['stoch_rsi'] < 0.2 else "Medio"}
+• MACD Histogram: {ind['macd_hist']:.4f} - {"ALCISTA +" if ind['macd_hist'] > 0 else "BAJISTA -"}
+• MACD Línea: {ind['macd']:.4f}
+
+═══════════════════════════════════════════════════════════
+🌊 VOLATILIDAD Y VOLUMEN
+═══════════════════════════════════════════════════════════
+• ATR Actual: ${atr_actual:.2f}
+• ATR Promedio (50D): ${atr_promedio:.2f}
+• Volatilidad Ratio: {volatilidad_ratio:.2f}x {"(ALTA)" if volatilidad_ratio > 1.5 else "(NORMAL)" if volatilidad_ratio > 0.7 else "(BAJA)"}
+• Volatilidad Anualizada 20D: {volatilidad_20d:.1f}%
+• RVOL (Volumen Relativo): {ind['rvol']:.2f}x - {"Alto" if ind['rvol'] > 1.5 else "Normal" if ind['rvol'] > 0.8 else "Bajo"}
+• Posición Bollinger: {signals['bb_position']}
+
+═══════════════════════════════════════════════════════════
+🎯 NIVELES TÉCNICOS CLAVE (Fibonacci 52W)
+═══════════════════════════════════════════════════════════
+• Máximo 52W: ${max_52w:.2f} ({((max_52w - signals['price'])/signals['price']*100):+.1f}% desde actual)
+• Fib 78.6%: ${fib_786:.2f} {"← RESISTENCIA" if signals['price'] < fib_786 else "← Superado"}
+• Fib 61.8%: ${fib_618:.2f} {"← RESISTENCIA" if signals['price'] < fib_618 else "← Superado"}
+• Fib 50.0%: ${fib_500:.2f} {"← MEDIO" if abs(signals['price'] - fib_500) < rango_52w * 0.05 else ""}
+• Fib 38.2%: ${fib_382:.2f} {"← SOPORTE" if signals['price'] > fib_382 else "← Roto"}
+• Fib 23.6%: ${fib_236:.2f} {"← SOPORTE" if signals['price'] > fib_236 else "← Roto"}
+• Mínimo 52W: ${min_52w:.2f} ({((signals['price'] - min_52w)/min_52w*100):+.1f}% desde actual)
+• Posición en Rango: {posicion_en_rango:.1f}% {"(Zona ALTA)" if posicion_en_rango > 70 else "(Zona MEDIA)" if posicion_en_rango > 30 else "(Zona BAJA)"}
+
+═══════════════════════════════════════════════════════════
+🎲 SISTEMA DE SCORING MULTIFACTORIAL
+═══════════════════════════════════════════════════════════
+• Score Total: {analysis['signals']['score']}/100
+• Recomendación: {analysis['signals']['recommendation']}
+• Nivel de Confianza: {analysis['signals']['confidence']}
+• Señales de Compra: {len(analysis['signals']['buy_signals'])} activas
+• Señales de Venta: {len(analysis['signals']['sell_signals'])} activas
+
+SEÑALES DETECTADAS:
+"""
         
-        - CONTEXTO MACRO: {contexto}
-        - PRECIO: ${signals['price']:.2f} (Cambio: {signals['price_change_pct']:.2f}%)
-        - MOMENTUM: RSI({ind['rsi']:.1f}), StochRSI({ind['stoch_rsi']:.2f})
-        - TENDENCIA: ADX({ind['adx']:.1f}), MACD Hist({ind['macd_hist']:.4f})
-        - VOLATILIDAD/FLUJO: ATR(${ind['atr']:.2f}), RVOL({ind['rvol']:.2f}x)
-        - SCORE TOTAL: {analysis['signals']['score']} ({analysis['signals']['recommendation']})
+        # Agregar señales de compra
+        if analysis['signals']['buy_signals']:
+            prompt += "\n🟢 COMPRA:\n"
+            for signal in analysis['signals']['buy_signals'][:3]:  # Top 3
+                prompt += f"  • {signal}\n"
         
-        INSTRUCCIONES:
-        1. Realiza una síntesis profesional analizando convergencias/divergencias.
-        2. Evalúa si el volumen (RVOL) valida el movimiento del precio.
-        3. Da un veredicto de gestión de riesgo basado en la volatilidad actual.
-        4. Usa un tono serio, técnico y directo. Máximo 4 párrafos cortos.
-        """
+        # Agregar señales de venta
+        if analysis['signals']['sell_signals']:
+            prompt += "\n🔴 VENTA:\n"
+            for signal in analysis['signals']['sell_signals'][:3]:  # Top 3
+                prompt += f"  • {signal}\n"
+        
+        # Agregar observaciones neutrales
+        if analysis['signals']['neutral_signals']:
+            prompt += "\n⚪ OBSERVACIONES:\n"
+            for signal in analysis['signals']['neutral_signals'][:2]:  # Top 2
+                prompt += f"  • {signal}\n"
+        
+        prompt += f"""
+═══════════════════════════════════════════════════════════
+📋 TU ANÁLISIS REQUERIDO (Formato estructurado)
+═══════════════════════════════════════════════════════════
+
+### Análisis Técnico de Convergencia
+(2-3 líneas) Evalúa si momentum, tendencia y volumen están alineados. Identifica la confluencia o divergencia más importante entre indicadores.
+
+### Validación del Volumen
+(2 líneas) ¿El RVOL de {ind['rvol']:.2f}x confirma el movimiento del precio? ¿Hay convicción institucional o es movimiento retail?
+
+### Posicionamiento en Rango
+(2 líneas) Con el activo en {posicion_en_rango:.1f}% del rango 52W, evalúa si está cerca de soportes/resistencias clave. Considera los niveles Fibonacci.
+
+### Gestión de Riesgo
+(2-3 líneas) Evalúa la volatilidad actual (ATR {volatilidad_ratio:.2f}x vs promedio). Recomienda:
+- Stop loss sugerido: Entrada - (ATR × 2) = Entrada - ${atr_actual * 2:.2f}
+- Target 1: Entrada + (ATR × 3) = Entrada + ${atr_actual * 3:.2f}
+- Tamaño de posición recomendado: ¿Reducir por volatilidad?
+
+### Veredicto Final
+(2-3 líneas máximo)
+- ACCIÓN: [COMPRA AGRESIVA / COMPRA MODERADA / ESPERAR / VENTA / SIN OPERACIÓN]
+- TIMEFRAME: [Intraday / Swing 3-5D / Posición 1-4W]
+- CATALYST: ¿Qué evento o nivel técnico validaría/invalidaría la tesis?
+
+IMPORTANTE: 
+- Responde en formato markdown con ### para headers
+- Usa bullets (•) para listas
+- Máximo 400 palabras
+- Tono técnico y directo, sin fluff
+- Menciona números específicos (niveles de precio)
+"""
+        
+        # ====================================================================
+        # LLAMADA A GROQ
+        # ====================================================================
         
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile", # Modelo potente para razonamiento complejo 
-            messages=[{"role": "system", "content": "Eres un terminal quant de alta precisión."},
-                      {"role": "user", "content": prompt}],
-            temperature=0.3, # Menor temperatura para mayor precisión técnica
-            max_tokens=500
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Eres un analista cuantitativo senior con 15 años de experiencia en trading institucional. Respondes de forma estructurada, técnica y accionable. Usas números específicos y niveles de precio concretos."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.2,  # Más bajo para mayor precisión
+            max_tokens=800,   # Más tokens para análisis completo
+            top_p=0.9
         )
-        return completion.choices[0].message.content
+        
+        analisis = completion.choices[0].message.content
+        
+        # ====================================================================
+        # FORMATEAR OUTPUT
+        # ====================================================================
+        
+        output = f"""
+🧠 **Análisis Pro de Groq (Llama 3.3)**
+
+---
+
+{analisis}
+
+---
+
+📊 **Contexto de Datos:**
+- Performance 20D: {retorno_20d:+.2f}% | Volatilidad: {volatilidad_20d:.1f}%
+- Posición en rango 52W: {posicion_en_rango:.1f}%
+- ATR: ${atr_actual:.2f} ({volatilidad_ratio:.2f}x vs promedio)
+- Score técnico: {analysis['signals']['score']}/100
+"""
+        
+        return output
+        
     except Exception as e:
-        return f"⚠️ Error con Groq Pro: {str(e)}"
+        return f"⚠️ Error en análisis Groq: {str(e)}"
+
         
 # Watchlist management
 import json
@@ -269,16 +466,21 @@ with tab1:
     
     st.markdown("---")
     if st.button("🔮 Consultar al Oráculo (Análisis Profundo)"):
-        with st.spinner("Realizando análisis quant multidimensional..."):
-            # Ahora la variable market_regime ya existe para este botón
-            respuesta = consultar_ia_groq(
-                ticker, 
-                analysis, 
-                signals, 
-                market_regime
-            )
-            st.markdown(f"### 🤖 Análisis Pro de Groq")
-            st.info(respuesta)
+    with st.spinner("Analizando contexto histórico..."):
+        # Obtener régimen de mercado
+        market_regime = fetcher.get_market_regime()
+        
+        # Llamar función mejorada (ahora con data_processed)
+        analisis_ia = consultar_ia_groq(
+            ticker=ticker,
+            analysis=analysis, 
+            signals=signals, 
+            market_regime=market_regime,
+            data_processed=data_processed  # ← NUEVO PARÁMETRO
+        )
+        
+        st.markdown(analisis_ia)  # Cambiado de st.info a st.markdown
+            
     
     # Resumen de señales
     st.markdown("---")
