@@ -834,6 +834,37 @@ with tab3:
         st.error("❌ Posición excede límites - Reducir tamaño")
 
     # ============================================================================
+    # 🛡️ AI RISK OFFICER - BOTÓN DE ACTIVACIÓN
+    # ============================================================================
+    st.markdown("---")
+    st.subheader("🛡️ AI Risk Officer - Validación Inteligente")
+    
+    col_ia1, col_ia2 = st.columns([1, 2])
+    
+    with col_ia1:
+        st.write("Pulsa para que la IA valide tu gestión de riesgo basada en el VIX y el modelo ML.")
+        # El botón clave que activa la consulta al CRO virtual
+        btn_risk = st.button("⚖️ Validar Riesgo con IA", key="btn_cro_risk")
+        
+    with col_ia2:
+        if btn_risk:
+            with st.spinner("El CRO está evaluando la exposición..."):
+                # Verificamos si hay un modelo de ML entrenado para darle más contexto a la IA
+                ml_pred = None
+                if ticker in st.session_state.ml_models:
+                    ml_pred = get_ml_prediction(st.session_state.ml_models[ticker], data_processed)
+                
+                # Llamada a la función que pegamos en el Paso 1
+                veredicto_ia = consultar_ia_riesgo(
+                    ticker=ticker,
+                    risk_calc=risk_calc,
+                    position_calc=position_calc,
+                    market_regime=market_regime,
+                    ml_prediction=ml_pred
+                )
+                st.info(veredicto_ia)
+
+    # ============================================================================
     # 🛡️ AQUÍ ES DONDE PEGAS EL NUEVO CÓDIGO DEL AI RISK OFFICER
     # ============================================================================
     st.markdown("---")
