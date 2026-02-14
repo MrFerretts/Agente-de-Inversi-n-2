@@ -42,3 +42,6 @@ flake8>=6.0.0
 
 # Nuevo AI
 groq>=0.5.0
+
+# Machine Learning
+scikit-learn>=1.0.0
