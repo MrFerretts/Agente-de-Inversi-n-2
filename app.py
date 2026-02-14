@@ -671,6 +671,28 @@ with tab5:
                 macro_info = fetcher.get_market_regime()
                 notifier.send_full_report(df_summary=df_res, macro_info=macro_info)
                 st.success("✅ ¡Reporte de 13 indicadores enviado!")
+
+# ============================================================================
+# MONITOR DE SEÑALES EN TIEMPO REAL (PÉGALO AQUÍ)
+# ============================================================================
+        st.sidebar.markdown("---")
+        st.sidebar.header("🔔 Alertas Proactivas")
+        auto_monitor = st.sidebar.checkbox("Activar Monitor en Vivo", value=False)
+
+        if auto_monitor:
+           last_signal_key = f"last_alert_{ticker}"
+           current_rec = analysis['signals']['recommendation']
+    
+    if "FUERTE" in current_rec:
+        if st.session_state.get(last_signal_key) != current_rec:
+            with st.sidebar:
+                with st.spinner("Enviando alerta en tiempo real..."):
+                    notifier.send_signal_alert(ticker, analysis)
+                    st.session_state[last_signal_key] = current_rec
+                    st.toast(f"🚀 Alerta enviada: {ticker} - {current_rec}")
+                    st.success(f"🔔 Alerta de {current_rec} emitida.")
+    else:
+        st.sidebar.info("🛰️ Monitoreando... Esperando señal fuerte.")
 # ============================================================================
 # FOOTER
 # ============================================================================
