@@ -63,23 +63,44 @@ fetcher = st.session_state.fetcher
 analyzer = st.session_state.analyzer
 notifier = st.session_state.notifier
 
-def consultar_ia_groq(ticker, precio, rsi, macd, recomendacion):
+def consultar_ia_groq(ticker, analysis, signals, market_regime):
     try:
         from groq import Groq
         client = Groq(api_key=API_CONFIG['groq_api_key'])
         
-        # ACTUALIZACIÓN: Usamos llama-3.3-70b-versatile que es el estándar actual
-        prompt = f"Como experto quant de San Pedro, analiza {ticker}: Precio {precio}, RSI {rsi}, MACD {macd}, Rec {recomendacion} en 3 frases."
+        # Extraemos datos profundos de tu motor de análisis 
+        ind = analysis['indicators']
+        contexto = f"VIX: {market_regime['vix']:.2f}, Régimen: {market_regime['regime']}"
+        
+        # Construimos un contexto técnico ultra-detallado [cite: 74, 86]
+        prompt = f"""
+        Actúa como un Senior Quantitative Researcher de un Hedge Fund. 
+        Analiza el activo {ticker} con los siguientes datos técnicos reales:
+        
+        - CONTEXTO MACRO: {contexto}
+        - PRECIO: ${signals['price']:.2f} (Cambio: {signals['price_change_pct']:.2f}%)
+        - MOMENTUM: RSI({ind['rsi']:.1f}), StochRSI({ind['stoch_rsi']:.2f})
+        - TENDENCIA: ADX({ind['adx']:.1f}), MACD Hist({ind['macd_hist']:.4f})
+        - VOLATILIDAD/FLUJO: ATR(${ind['atr']:.2f}), RVOL({ind['rvol']:.2f}x)
+        - SCORE TOTAL: {analysis['signals']['score']} ({analysis['signals']['recommendation']})
+        
+        INSTRUCCIONES:
+        1. Realiza una síntesis profesional analizando convergencias/divergencias.
+        2. Evalúa si el volumen (RVOL) valida el movimiento del precio.
+        3. Da un veredicto de gestión de riesgo basado en la volatilidad actual.
+        4. Usa un tono serio, técnico y directo. Máximo 4 párrafos cortos.
+        """
         
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile", # <--- MODELO ACTUALIZADO
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5,
-            max_tokens=150
+            model="llama-3.3-70b-versatile", # Modelo potente para razonamiento complejo 
+            messages=[{"role": "system", "content": "Eres un terminal quant de alta precisión."},
+                      {"role": "user", "content": prompt}],
+            temperature=0.3, # Menor temperatura para mayor precisión técnica
+            max_tokens=500
         )
         return completion.choices[0].message.content
     except Exception as e:
-        return f"⚠️ Error con Groq: {str(e)}"
+        return f"⚠️ Error con Groq Pro: {str(e)}"
         
 # Watchlist management
 import json
