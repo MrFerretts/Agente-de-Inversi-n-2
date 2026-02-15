@@ -34,6 +34,27 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# ============================================================================
+# ESTILO VISUAL: DARK CRYPTO DASHBOARD
+# ============================================================================
+st.markdown("""
+<style>
+    .stApp { background-color: #0e0e0e; color: #e0e0e0; }
+    .css-1r6slb0, .st-emotion-cache-1r6slb0, .st-emotion-cache-10trblm {
+        background-color: #1a1a1a; border-radius: 12px; padding: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); border: 1px solid #2d2d2d;
+    }
+    .metric-card {
+        background-color: #1a1a1a; border-radius: 10px; padding: 15px;
+        border: 1px solid #2d2d2d; text-align: center;
+    }
+    [data-testid="stMetricValue"] { font-size: 24px; font-weight: 700; color: #ffffff; }
+    .stButton>button { border-radius: 8px; font-weight: 600; border: none; }
+    .buy-button>button { background-color: #00c853; color: white; }
+    .sell-button>button { background-color: #d32f2f; color: white; }
+</style>
+""", unsafe_allow_html=True)
+
 # Cargar configuración
 try:
     if "API_CONFIG" in st.secrets:
@@ -74,6 +95,20 @@ chart_builder = st.session_state.chart_builder
 fetcher = st.session_state.fetcher
 analyzer = st.session_state.analyzer
 notifier = st.session_state.notifier
+
+# ============================================================================
+# UI HELPER: CREAR TARJETAS MÉTRICAS
+# ============================================================================
+def crear_metric_card(titulo, valor, delta):
+    color = "#00c853" if "+" in str(delta) or "COMPRA" in str(valor) else "#d32f2f"
+    flecha = "↑" if color == "#00c853" else "↓"
+    st.markdown(f"""
+    <div class="metric-card">
+        <p style="color: #a0a0a0; font-size: 14px; margin-bottom: 5px;">{titulo}</p>
+        <h3 style="color: #ffffff; margin: 0; font-size: 26px;">{valor}</h3>
+        <p style="color: {color}; font-size: 14px; margin-top: 5px;">{flecha} {delta}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 """
 PROMPT MEJORADO DE GROQ - VERSION PRO
