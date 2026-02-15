@@ -107,10 +107,6 @@ def crear_metric_card(titulo, valor, delta):
     </div>
     """, unsafe_allow_html=True)
 
-"""
-PROMPT MEJORADO DE GROQ - VERSION PRO
-Copiar esta función completa y reemplazar la actual en tu app.py
-"""
 
 def consultar_ia_groq(ticker, analysis, signals, market_regime, data_processed):
     """
