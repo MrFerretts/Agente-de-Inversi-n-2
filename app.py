@@ -114,14 +114,11 @@ notifier = st.session_state.notifier
 def crear_metric_card(titulo, valor, delta):
     color = "#00c853" if "+" in str(delta) or "COMPRA" in str(valor) else "#d32f2f"
     flecha = "↑" if color == "#00c853" else "↓"
-    # Hemos envuelto el H3 dentro del nuevo div .metric-circle
     st.markdown(f"""
     <div class="metric-card">
-        <p style="color: #a0a0a0; font-size: 13px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">{titulo}</p>
-        <div class="metric-circle">
-            <h3 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">{valor}</h3>
-        </div>
-        <p style="color: {color}; font-size: 14px; margin-top: 8px; font-weight: 600;">{flecha} {delta}</p>
+        <p style="color: #a0a0a0; font-size: 14px; margin-bottom: 5px;">{titulo}</p>
+        <h3 style="color: #ffffff; margin: 0; font-size: 26px;">{valor}</h3>
+        <p style="color: {color}; font-size: 14px; margin-top: 5px;">{flecha} {delta}</p>
     </div>
     """, unsafe_allow_html=True)
 
