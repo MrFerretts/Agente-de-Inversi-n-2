@@ -1,7 +1,4 @@
-f"""
-PATO QUANT TERMINAL PRO - Versión Refactorizada
-Arquitectura modular con separación de responsabilidades
-"""
+
 
 import streamlit as st
 import pandas as pd
