@@ -21,6 +21,8 @@ from technical_analysis import TechnicalAnalyzer
 from notifications import NotificationManager
 from groq import Groq
 from ml_model import TradingMLModel, train_ml_model_for_ticker, get_ml_prediction, format_ml_output
+from portfolio_tracker import PortfolioTracker, display_portfolio_dashboard
+from auto_monitoring import AutoMonitoringSystem, setup_auto_monitoring, display_monitoring_controls
 
 # ============================================================================
 # CONFIGURACIÓN INICIAL
@@ -59,6 +61,12 @@ if 'state_manager' not in st.session_state:
     # 🤖 ESTO DEBE QUEDAR AFUERA (Línea ~60 aprox)
 if 'ml_models' not in st.session_state:
     st.session_state.ml_models = {}
+
+# Portfolio Tracker
+if 'portfolio_tracker' not in st.session_state:
+    st.session_state.portfolio_tracker = PortfolioTracker(data_file="data/portfolio.json")
+
+portfolio_tracker = st.session_state.portfolio_tracker
 
 state_mgr = st.session_state.state_manager
 risk_mgr = st.session_state.risk_manager
@@ -534,13 +542,14 @@ with st.spinner("Analizando contexto macro..."):
 # TABS PRINCIPALES
 # ============================================================================
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 Dashboard Principal",
     "📈 Análisis Técnico Avanzado",
     "💰 Risk Management",
     "🧪 Backtesting Pro",
     "🔍 Scanner Multi-Activo",
-    "🤖 Machine Learning"  # ← NUEVO
+    "🤖 Machine Learning",
+    "💼 Mi Portfolio"  # ← NUEVO TAB
 ])
 
 # ============================================================================
@@ -1325,6 +1334,101 @@ with tab6:
                 st.rerun()
 
 # ============================================================================
+# TAB 7: MI PORTFOLIO
+# ============================================================================
+
+with tab7:
+    st.header("💼 Mi Portfolio & Trading Journal")
+    
+    # Obtener precios actuales de los primeros 10 tickers de la watchlist
+    current_prices = {}
+    with st.spinner("Actualizando precios..."):
+        for symbol in lista_completa[:10]:  # Solo primeros 10 para no tardar mucho
+            try:
+                data_symbol = fetcher.get_portfolio_data([symbol], period='1d')[symbol]
+                if not data_symbol.empty:
+                    current_prices[symbol] = data_symbol['Close'].iloc[-1]
+            except:
+                pass
+    
+    # Mostrar dashboard completo del portfolio
+    display_portfolio_dashboard(portfolio_tracker, current_prices)
+    
+    # Sección para abrir nueva posición
+    st.markdown("---")
+    st.subheader("➕ Abrir Nueva Posición")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        new_ticker = st.selectbox("Ticker", lista_completa, key='new_position_ticker')
+        new_shares = st.number_input("Número de Acciones", min_value=1, value=10, key='new_position_shares')
+    
+    with col2:
+        # Obtener precio actual del ticker seleccionado
+        try:
+            data_current = fetcher.get_portfolio_data([new_ticker], period='1d')[new_ticker]
+            current_price_new = data_current['Close'].iloc[-1]
+        except:
+            current_price_new = 100.0
+        
+        new_entry = st.number_input(
+            "Precio de Entrada", 
+            value=float(current_price_new), 
+            format="%.2f",
+            key='new_position_entry'
+        )
+        
+        new_stop = st.number_input(
+            "Stop Loss", 
+            value=float(current_price_new * 0.95),  # -5% default
+            format="%.2f",
+            key='new_position_stop'
+        )
+    
+    with col3:
+        new_target = st.number_input(
+            "Take Profit", 
+            value=float(current_price_new * 1.10),  # +10% default
+            format="%.2f",
+            key='new_position_target'
+        )
+        
+        new_strategy = st.text_input(
+            "Estrategia/Notas", 
+            value="Manual", 
+            key='new_position_strategy'
+        )
+    
+    # Botón para abrir posición
+    if st.button("✅ Abrir Posición", use_container_width=True, type="primary"):
+        try:
+            position = portfolio_tracker.add_position(
+                ticker=new_ticker,
+                entry_price=new_entry,
+                shares=new_shares,
+                stop_loss=new_stop,
+                take_profit=new_target,
+                strategy=new_strategy,
+                notes=f"Abierta desde Pato Terminal el {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            )
+            
+            st.success(f"✅ Posición abierta: {new_ticker} ({new_shares} shares @ ${new_entry:.2f})")
+            st.balloons()
+            st.rerun()
+            
+        except Exception as e:
+            st.error(f"❌ Error abriendo posición: {str(e)}")
+    
+    # Cálculo de riesgo estimado
+    risk_per_share = abs(new_entry - new_stop)
+    total_risk = risk_per_share * new_shares
+    position_size = new_entry * new_shares
+    risk_pct = (total_risk / position_size) * 100 if position_size > 0 else 0
+    
+    st.caption(f"💡 Riesgo estimado: ${total_risk:.2f} ({risk_pct:.2f}% de la posición)")
+
+# ============================================================================
 # 🤖 PASO C: MACHINE LEARNING (PÉGALO AQUÍ AHORA)
 # ============================================================================
 st.sidebar.markdown("---")
@@ -1373,6 +1477,40 @@ if st.sidebar.button("🧠 Entrenar LSTM (Deep Learning)"):
             st.sidebar.caption("Verifica que ml_model_lstm.py esté en tu repo")
 
 # ============================================================================
+# SISTEMA AUTÓNOMO DE MONITOREO
+# ============================================================================
+
+st.sidebar.markdown("---")
+st.sidebar.header("🤖 Sistema Autónomo")
+
+# Configurar sistema de monitoreo automático
+if 'auto_monitor' not in st.session_state:
+    st.session_state.auto_monitor = setup_auto_monitoring(
+        st=st,
+        watchlist=lista_completa,
+        fetcher=fetcher,
+        analyzer=analyzer,
+        ml_models=st.session_state.ml_models,
+        portfolio_tracker=portfolio_tracker
+    )
+
+# Mostrar controles del sistema autónomo
+display_monitoring_controls(st, st.session_state.auto_monitor)
+
+# Mostrar análisis en caché (opcional)
+if st.sidebar.checkbox("📊 Ver Análisis en Caché"):
+    st.sidebar.caption("Últimos análisis automáticos:")
+    
+    for ticker_cached in lista_completa[:5]:
+        cached = st.session_state.auto_monitor.get_latest_analysis(ticker_cached)
+        if cached:
+            age_seconds = (datetime.now() - datetime.fromisoformat(cached['timestamp'])).seconds
+            minutes_ago = age_seconds // 60
+            seconds_ago = age_seconds % 60
+            
+            st.sidebar.caption(f"• {ticker_cached}: {minutes_ago}m {seconds_ago}s ago")
+
+# ============================================================================
 # MONITOR DE SEÑALES EN TIEMPO REAL (FUERA DE LAS TABS)
 # ============================================================================
 st.sidebar.markdown("---")
@@ -1406,4 +1544,5 @@ st.caption(f"""
 📊 {len(lista_completa)} activos monitoreados | 
 ⏱️ Última actualización: {datetime.now(pytz.timezone('America/Monterrey')).strftime('%d/%m/%Y %H:%M:%S')} (Monterrey)
 """)
+
 
