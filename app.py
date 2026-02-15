@@ -587,109 +587,95 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "💼 Mi Portfolio"  # ← NUEVO TAB
 ])
 
-# ============================================================================
-# TAB 1: DASHBOARD PRINCIPAL
-# ============================================================================
+# 1. BANNER SUPERIOR: Métradas Modernas
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1: crear_metric_card("Precio", f"${signals['price']:.2f}", f"{signals['price_change_pct']:+.2f}%")
+    with c2: crear_metric_card("RSI", f"{signals['rsi']:.1f}", "Sobrecompra" if signals['rsi'] > 70 else "Neutral")
+    with c3: crear_metric_card("ADX", f"{signals['adx']:.1f}", signals['trend_strength'])
+    with c4: crear_metric_card("RVOL", f"{signals['rvol']:.2f}x", "Alto" if signals['rvol'] > 1.5 else "Normal")
+    with c5: crear_metric_card("Señal", analysis['signals']['recommendation'], f"Score: {analysis['signals']['score']}")
 
-with tab1:
-    # Métricas principales
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        st.metric(
-            "Precio",
-            f"${signals['price']:.2f}",
-            f"{signals['price_change_pct']:.2f}%"
-        )
-    
-    with col2:
-        rsi_delta = "Sobrecompra" if signals['rsi'] > 70 else "Sobreventa" if signals['rsi'] < 30 else "Neutral"
-        st.metric("RSI", f"{signals['rsi']:.1f}", rsi_delta)
-    
-    with col3:
-        st.metric("ADX", f"{signals['adx']:.1f}", signals['trend_strength'])
-    
-    with col4:
-        st.metric("RVOL", f"{signals['rvol']:.2f}x")
-    
-    with col5:
-        rec = analysis['signals']['recommendation']
-        rec_color = "🟢" if "COMPRA" in rec else "🔴" if "VENTA" in rec else "🟡"
-        st.metric("Señal", rec, rec_color)
+    st.markdown("---")
 
-    
-    st.markdown("---")
-    
-    # Gráfico principal
-    st.subheader("📊 Análisis Técnico Completo")
-    
-    fig = chart_builder.create_multi_indicator_chart(
-        data_processed,
-        ticker,
-        show_signals=False
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown("---")
-    if st.button("🔮 Consultar al Oráculo (Análisis Profundo)"):
-        with st.spinner("Analizando contexto histórico..."):
-            # Obtener régimen de mercado
-            market_regime = fetcher.get_market_regime()
-            
-            # Llamar función mejorada (ahora con data_processed)
-            analisis_ia = consultar_ia_groq(
-                ticker=ticker,
-                analysis=analysis, 
-                signals=signals, 
-                market_regime=market_regime,
-                data_processed=data_processed  # ← NUEVO PARÁMETRO
-            )
-            
-            st.markdown(analisis_ia)  # Cambiado de st.info a st.markdown
-            
-    
-    # Resumen de señales
-    st.markdown("---")
-    st.subheader("🎯 Resumen de Señales")
-    
-    col_a, col_b, col_c = st.columns(3)
-    
-    with col_a:
-        st.markdown("### ✅ Señales de Compra")
-        buy_signals = analysis['signals'].get('buy_signals', [])
-        if buy_signals:
-            for signal in buy_signals:
-                st.markdown(f"- {signal}")
-        else:
-            st.info("Sin señales de compra")
-    
-    with col_b:
-        st.markdown("### ❌ Señales de Venta")
-        sell_signals = analysis['signals'].get('sell_signals', [])
-        if sell_signals:
-            for signal in sell_signals:
-                st.markdown(f"- {signal}")
-        else:
-            st.info("Sin señales de venta")
-    
-    with col_c:
-        st.markdown("### ↔️ Observaciones")
-        neutral_signals = analysis['signals'].get('neutral_signals', [])
-        if neutral_signals:
-            for signal in neutral_signals:
-                st.markdown(f"- {signal}")
-        else:
-            st.info("Sin observaciones adicionales")
-    
-    # Score total
-    st.markdown("---")
-    score = analysis['signals']['score']
-    score_color = "green" if score > 0 else "red" if score < 0 else "gray"
-    
-    st.markdown(f"### 🎯 Score Total: <span style='color:{score_color}; font-size:2em;'>{score}</span>", 
-                unsafe_allow_html=True)
-    st.caption(f"Confianza: {analysis['signals']['confidence']}")
+    # 2. CUERPO: Gráfico (Izquierda) + Inteligencia Artificial (Derecha)
+    col_main, col_side = st.columns([2.2, 1])
 
+    with col_main:
+        st.subheader(f"📊 Análisis Técnico: {ticker}")
+        fig = chart_builder.create_multi_indicator_chart(data_processed, ticker, show_signals=False)
+        fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Botón de Groq original
+        if st.button("🔮 Consultar al Oráculo (Análisis Profundo)", use_container_width=True):
+            with st.spinner("IA analizando contexto histórico..."):
+                analisis_ia = consultar_ia_groq(ticker, analysis, signals, market_regime, data_processed)
+                st.markdown(analisis_ia)
+
+        st.markdown("---")
+        # Resumen de señales original
+        col_s1, col_s2 = st.columns(2)
+        with col_s1:
+            st.write("### ✅ Señales de Compra")
+            for s in analysis['signals'].get('buy_signals', [])[:4]: st.success(f"↑ {s}")
+        with col_s2:
+            st.write("### ❌ Señales de Venta")
+            for s in analysis['signals'].get('sell_signals', [])[:4]: st.error(f"↓ {s}")
+
+    with col_side:
+        st.subheader("🧠 Modelos de IA")
+        
+        # --- SECCIÓN ML TRADICIONAL (Código intacto) ---
+        if ticker in st.session_state.ml_models:
+            model = st.session_state.ml_models[ticker]
+            ml_prediction = get_ml_prediction(model, data_processed)
+            if ml_prediction:
+                st.markdown(f"""<div class="ia-panel">
+                    <p style="margin:0; font-size:12px; color:#aaa;">RANDOM FOREST (ML)</p>
+                    <h4 style="margin:0;">{ml_prediction['recommendation']}</h4>
+                    <p style="margin:0; color:#ffcc00;">Prob. Alcista: {ml_prediction['probability_up']*100:.1f}%</p>
+                </div>""", unsafe_allow_html=True)
+                
+                with st.expander("📊 Razonamiento ML"):
+                    st.markdown(format_ml_output(ml_prediction, ticker))
+                    if st.checkbox("Ver Features Importantes", key="feat_dash"):
+                        st.dataframe(model.get_feature_importance().head(5), use_container_width=True)
+        else:
+            st.info("💡 Entrena ML en el sidebar")
+
+        st.write("") # Espaciador
+
+        # --- SECCIÓN LSTM DEEP LEARNING (Código intacto) ---
+        lstm_key = f"{ticker}_lstm"
+        if lstm_key in st.session_state.ml_models:
+            lstm_model = st.session_state.ml_models[lstm_key]
+            try:
+                lstm_pred = lstm_model.predict(data_processed)
+                st.markdown(f"""<div class="ia-panel" style="border-left-color: #00c853;">
+                    <p style="margin:0; font-size:12px; color:#aaa;">DEEP LEARNING (LSTM)</p>
+                    <h4 style="margin:0;">{lstm_pred['recommendation']}</h4>
+                    <p style="margin:0; color:#00c853;">Prob. LSTM: {lstm_pred['probability_up']*100:.1f}%</p>
+                </div>""", unsafe_allow_html=True)
+                
+                # Comparativa inteligente original
+                if ticker in st.session_state.ml_models:
+                    trad_pred = st.session_state.ml_models[ticker].predict(data_processed)
+                    diff = lstm_pred['probability_up'] - trad_pred['probability_up']
+                    if abs(diff) > 0.10:
+                        st.warning(f"⚠️ Divergencia detectada: LSTM es {'más optimista' if diff > 0 else 'más pesimista'}")
+                    else:
+                        st.success("✅ Modelos en confluencia")
+            except Exception as e:
+                st.error(f"Error LSTM: {str(e)}")
+        else:
+            st.info("💡 Entrena LSTM en el sidebar")
+
+        # Score Total original
+        st.markdown("---")
+        score = analysis['signals']['score']
+        score_color = "green" if score > 0 else "red"
+        st.markdown(f"### 🎯 Score Técnico: <span style='color:{score_color};'>{score}</span>", unsafe_allow_html=True)
+        st.caption(f"Confianza: {analysis['signals']['confidence']}")
     # ============================================================================
     # 🤖 PASO D: PREDICCIÓN MACHINE LEARNING (PÉGALO AQUÍ)
     # ============================================================================
