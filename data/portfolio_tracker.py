@@ -384,9 +384,10 @@ def display_portfolio_dashboard(tracker: PortfolioTracker, current_prices: Dict[
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
+        current_capital = tracker.portfolio['current_capital']
         st.metric(
             "Capital Total",
-            f"${metrics['current_capital']:,.0f}",
+            f"${current_capital:,.0f}",
             delta=f"{metrics['total_return']:+.2f}%"
         )
     
@@ -507,3 +508,4 @@ def display_portfolio_dashboard(tracker: PortfolioTracker, current_prices: Dict[
             fig_dist = tracker.create_pnl_distribution()
             if fig_dist:
                 st.plotly_chart(fig_dist, use_container_width=True)
+
