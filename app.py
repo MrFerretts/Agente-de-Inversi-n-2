@@ -45,6 +45,21 @@ st.markdown("""
         background-color: #1a1a1a; border-radius: 10px; padding: 15px;
         border: 1px solid #2d2d2d; text-align: center;
     }
+
+    /* El círculo alrededor del número */
+    .metric-circle {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 90px;  /* Ancho fijo */
+        height: 90px; /* Alto igual al ancho para que sea un círculo perfecto */
+        border-radius: 50%; /* Esto hace la magia del círculo */
+        background-color: #222; /* Un tono ligeramente más claro que la tarjeta */
+        border: 2px solid #333; /* El anillo exterior */
+        margin: 10px auto; /* Centrado horizontalmente */
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.5); /* Sombra interna para profundidad */
+    }
+    
     [data-testid="stMetricValue"] { font-size: 24px; font-weight: 700; color: #ffffff; }
     .stButton>button { border-radius: 8px; font-weight: 600; border: none; }
     .buy-button>button { background-color: #00c853; color: white; }
