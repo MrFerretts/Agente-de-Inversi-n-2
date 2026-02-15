@@ -1,4 +1,4 @@
- f"""
+f"""
 PATO QUANT TERMINAL PRO - Versión Refactorizada
 Arquitectura modular con separación de responsabilidades
 """
@@ -938,11 +938,6 @@ with tab3:
                 )
                 st.info(veredicto_ia)
 
-    # ============================================================================
-    # 🛡️ AQUÍ ES DONDE PEGAS EL NUEVO CÓDIGO DEL AI RISK OFFICER
-    # ============================================================================
-    st.markdown("---")
-    st.subheader("🛡️ AI Risk Officer - Validación Inteligente")
     
     # Visualización de niveles en gráfico
     st.markdown("---")
