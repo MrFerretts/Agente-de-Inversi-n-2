@@ -1,4 +1,4 @@
-"""
+ f"""
 PATO QUANT TERMINAL PRO - Versión Refactorizada
 Arquitectura modular con separación de responsabilidades
 """
@@ -696,6 +696,45 @@ with tab1:
         st.info(f"💡 Para ver la predicción de IA, primero haz clic en '🎓 Entrenar Modelo ML' en la barra lateral.")
 
 # ============================================================================
+    # 🧠 VISUALIZACIÓN LSTM (COMPARACIÓN DE MODELOS)
+    # ============================================================================
+    st.markdown("---")
+    st.subheader("🧠 Predicción LSTM (Deep Learning)")
+
+    lstm_key = f"{ticker}_lstm"
+    if lstm_key in st.session_state.ml_models:
+        lstm_model = st.session_state.ml_models[lstm_key]
+        
+        try:
+            # Obtener predicción de Deep Learning
+            lstm_pred = lstm_model.predict(data_processed)
+            
+            if lstm_pred:
+                c_l1, c_l2, c_l3, c_l4 = st.columns(4)
+                with c_l1:
+                    st.metric("🧠 Prob. LSTM", f"{lstm_pred['probability_up']*100:.1f}%", 
+                              delta=f"{(lstm_pred['probability_up'] - 0.5)*100:+.1f}%")
+                with c_l2:
+                    st.metric("Prob. Bajista", f"{lstm_pred['probability_down']*100:.1f}%")
+                with c_l3:
+                    c_icon = "🟢" if lstm_pred['confidence'] > 0.7 else "🟡"
+                    st.metric("Confianza LSTM", f"{c_icon} {lstm_pred['confidence_level']}")
+                with c_l4:
+                    st.metric("Veredicto LSTM", lstm_pred['recommendation'])
+                
+                # Comparativa inteligente
+                if ticker in st.session_state.ml_models:
+                    trad_pred = st.session_state.ml_models[ticker].predict(data_processed)
+                    if abs(lstm_pred['probability_up'] - trad_pred['probability_up']) > 0.10:
+                        st.warning("⚠️ Los modelos divergen: LSTM ve patrones que el modelo básico ignora.")
+                    else:
+                        st.success("✅ Ambos cerebros (ML y LSTM) están alineados.")
+        except Exception as e:
+            st.error(f"Error en predicción LSTM: {str(e)}")
+    else:
+        st.info("💡 Entrena el cerebro LSTM en la barra lateral para ver este análisis.")
+
+# ============================================================================
 # TAB 2: ANÁLISIS TÉCNICO AVANZADO
 # ============================================================================
 
@@ -1307,6 +1346,36 @@ if st.sidebar.button("🎓 Entrenar Modelo ML"):
             st.sidebar.caption(f"Accuracy: {model.model_metrics['accuracy']*100:.1f}%")
         else:
             st.sidebar.error("❌ Error entrenando modelo")
+
+# ============================================================================
+# 🧠 NUEVO: BOTÓN LSTM (DEEP LEARNING)
+# ============================================================================
+st.sidebar.markdown("---")
+if st.sidebar.button("🧠 Entrenar LSTM (Deep Learning)"):
+    with st.spinner(f"🧠 Entrenando LSTM para {ticker}... (puede tardar 2-5 min)"):
+        try:
+            # Importamos el nuevo modelo avanzado
+            from ml_model_lstm import train_lstm_model
+            
+            # Entrenar LSTM con ventana de 20 días
+            lstm_model = train_lstm_model(
+                ticker=ticker,
+                data_processed=data_processed,
+                prediction_days=5,
+                lookback_window=20,
+                epochs=50 
+            )
+            
+            if lstm_model:
+                # Guardamos con un nombre distinto para no borrar el modelo básico
+                st.session_state.ml_models[f"{ticker}_lstm"] = lstm_model
+                st.sidebar.success(f"✅ LSTM entrenado para {ticker}")
+                st.sidebar.caption(f"Accuracy: {lstm_model.model_metrics['accuracy']*100:.1f}%")
+            else:
+                st.sidebar.error("❌ Error entrenando LSTM")
+        except Exception as e:
+            st.sidebar.error(f"❌ Error: {str(e)}")
+            st.sidebar.caption("Verifica que ml_model_lstm.py esté en tu repo")
 
 # ============================================================================
 # MONITOR DE SEÑALES EN TIEMPO REAL (FUERA DE LAS TABS)
