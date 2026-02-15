@@ -603,3 +603,129 @@ def train_advanced_ml_model(ticker: str, data_processed: pd.DataFrame,
         import traceback
         traceback.print_exc()
         return None
+
+# ============================================================================
+# FUNCIONES DE COMPATIBILIDAD PARA IMPORTS ANTERIORES
+# ============================================================================
+
+# Crear alias para que el código que importa TradingMLModel funcione
+TradingMLModel = AdvancedTradingMLModel
+
+
+def train_ml_model_for_ticker(ticker: str, data_processed: pd.DataFrame, 
+                              prediction_days: int = 5) -> AdvancedTradingMLModel:
+    """
+    Wrapper para compatibilidad con código anterior
+    Llama a train_advanced_ml_model con el nombre antiguo
+    
+    Args:
+        ticker: Símbolo del activo
+        data_processed: DataFrame con indicadores
+        prediction_days: Días a predecir
+    
+    Returns:
+        Modelo entrenado
+    """
+    return train_advanced_ml_model(ticker, data_processed, prediction_days)
+
+
+def get_ml_prediction(model: AdvancedTradingMLModel, data_processed: pd.DataFrame) -> Dict:
+    """
+    Obtiene predicción del modelo
+    
+    Args:
+        model: Modelo entrenado
+        data_processed: DataFrame con indicadores
+    
+    Returns:
+        Dict con predicción o None
+    """
+    if model is None or not model.is_trained:
+        return None
+    
+    try:
+        prediction = model.predict(data_processed)
+        return prediction
+    except Exception as e:
+        print(f"❌ Error en predicción: {str(e)}")
+        return None
+
+
+def format_ml_output(prediction: Dict, ticker: str) -> str:
+    """
+    Formatea output de ML para Streamlit
+    
+    Args:
+        prediction: Dict con predicción
+        ticker: Símbolo del activo
+    
+    Returns:
+        String formateado en markdown
+    """
+    if prediction is None:
+        return "⚠️ No hay predicción disponible"
+    
+    # Emoji según recomendación
+    if "COMPRA" in prediction['recommendation']:
+        emoji = "🟢"
+    elif "VENTA" in prediction['recommendation']:
+        emoji = "🔴"
+    else:
+        emoji = "🟡"
+    
+    output = f"""
+## 🤖 Predicción Machine Learning - {ticker}
+
+### Probabilidades
+- **📈 Subida en {prediction['prediction_days']} días:** {prediction['probability_up']*100:.1f}%
+- **📉 Bajada en {prediction['prediction_days']} días:** {prediction['probability_down']*100:.1f}%
+
+### Recomendación
+{emoji} **{prediction['recommendation']}**
+
+### Confianza del Modelo
+- **Nivel:** {prediction['confidence_level']}
+- **Score:** {prediction['confidence']*100:.1f}%
+- **Accuracy del modelo:** {prediction['model_accuracy']*100:.1f}%
+"""
+    
+    # Si es ensemble, mostrar predicciones individuales
+    if prediction.get('individual_predictions'):
+        output += "\n### 🔬 Predicciones de Modelos Individuales\n"
+        
+        indiv = prediction['individual_predictions']
+        
+        if 'rf' in indiv:
+            output += f"- **Random Forest:** {indiv['rf']*100:.1f}%\n"
+        if 'xgb' in indiv:
+            output += f"- **XGBoost:** {indiv['xgb']*100:.1f}%\n"
+        if 'lr' in indiv:
+            output += f"- **Logistic Regression:** {indiv['lr']*100:.1f}%\n"
+        
+        agreement = prediction.get('model_agreement', 0)
+        if agreement > 0:
+            output += "\n"
+            if agreement > 0.85:
+                output += f"✅ **Alto acuerdo** entre modelos ({agreement*100:.0f}%) - Señal muy confiable"
+            elif agreement > 0.70:
+                output += f"ℹ️ Acuerdo moderado entre modelos ({agreement*100:.0f}%)"
+            else:
+                output += f"⚠️ Bajo acuerdo entre modelos ({agreement*100:.0f}%) - Precaución"
+    
+    output += "\n\n### Interpretación\n"
+    
+    if prediction['probability_up'] > 0.70:
+        output += "✅ El modelo tiene **alta confianza** en una subida. Las condiciones técnicas favorecen posiciones largas."
+    elif prediction['probability_up'] > 0.60:
+        output += "↗️ El modelo sugiere **sesgo alcista moderado**. Considerar entrada con stops ajustados."
+    elif prediction['probability_up'] < 0.30:
+        output += "❌ El modelo tiene **alta confianza** en una bajada. Evitar posiciones largas."
+    elif prediction['probability_up'] < 0.40:
+        output += "↘️ El modelo sugiere **sesgo bajista**. Considerar reducir exposición."
+    else:
+        output += "↔️ El modelo es **neutral**. Esperar señal más clara antes de operar."
+    
+    if prediction['confidence_level'] == "BAJA":
+        output += "\n\n⚠️ **Nota:** Confianza baja. Combinar con análisis técnico tradicional."
+    
+    return output
