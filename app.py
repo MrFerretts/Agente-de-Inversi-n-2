@@ -587,7 +587,11 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "💼 Mi Portfolio"  # ← NUEVO TAB
 ])
 
-# 1. BANNER SUPERIOR: Métradas Modernas
+# ============================================================================
+# TAB 1: DASHBOARD PRINCIPAL (Lógica Completa + Diseño Pro)
+# ============================================================================
+with tab1:
+    
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1: crear_metric_card("Precio", f"${signals['price']:.2f}", f"{signals['price_change_pct']:+.2f}%")
     with c2: crear_metric_card("RSI", f"{signals['rsi']:.1f}", "Sobrecompra" if signals['rsi'] > 70 else "Neutral")
