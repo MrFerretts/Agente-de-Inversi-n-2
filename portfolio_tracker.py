@@ -392,10 +392,12 @@ def display_portfolio_dashboard(tracker: PortfolioTracker, current_prices: Dict[
         )
     
     with col2:
+        # Evitar división por cero en el delta
+        delta_text = f"{metrics['winning_trades']}/{metrics['total_trades']}" if metrics['total_trades'] > 0 else "Sin trades"
         st.metric(
             "Win Rate",
             f"{metrics['win_rate']:.1f}%",
-            delta=f"{metrics['winning_trades']}/{metrics['total_trades']}"
+            delta=delta_text
         )
     
     with col3:
