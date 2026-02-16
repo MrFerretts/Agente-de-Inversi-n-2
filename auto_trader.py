@@ -8,7 +8,7 @@ import alpaca_trade_api as tradeapi
 from datetime import datetime, timedelta
 import pandas as pd
 import time
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple # ← Agregamos Tuple aquí
 import json
 import os
 
