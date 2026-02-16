@@ -123,115 +123,9 @@ class RealTimeStreamer:
         # Estado
         self.is_running = False
         self.subscribed_symbols = set()
-        self.stream_thread = None
+        # ELIMINADO: Ya no usamos self.stream.subscribe porque no es WebSocket
         
-        # Estadísticas
-        self.stats = {
-            'messages_received': 0,
-            'last_update': None,
-            'symbols_active': 0
-        }
-    
-    def _init_buffers(self, symbol: str):
-        """Inicializa buffers para un símbolo"""
-        if symbol not in self.quotes_buffer:
-            self.quotes_buffer[symbol] = MemoryOptimizedBuffer(
-                max_size=self.max_buffer_size,
-                max_age_seconds=self.data_retention
-            )
-            self.trades_buffer[symbol] = MemoryOptimizedBuffer(
-                max_size=self.max_buffer_size,
-                max_age_seconds=self.data_retention
-            )
-            self.bars_buffer[symbol] = MemoryOptimizedBuffer(
-                max_size=100,  # Menos bars (más pesados)
-                max_age_seconds=self.data_retention
-            )
-    
-    async def _handle_quote(self, q):
-        """Handler para quotes (bid/ask)"""
-        try:
-            symbol = q.symbol
-            self._init_buffers(symbol)
-            
-            # Solo guardar datos esenciales (optimización de memoria)
-            data = {
-                'bid': float(q.bid_price),
-                'ask': float(q.ask_price),
-                'bid_size': int(q.bid_size),
-                'ask_size': int(q.ask_size),
-                'spread': float(q.ask_price - q.bid_price)
-            }
-            
-            self.quotes_buffer[symbol].append(data)
-            self.stats['messages_received'] += 1
-            self.stats['last_update'] = datetime.now()
-            
-        except Exception as e:
-            logger.error(f"Error handling quote: {e}")
-    
-    async def _handle_trade(self, t):
-        """Handler para trades (ejecuciones)"""
-        try:
-            symbol = t.symbol
-            self._init_buffers(symbol)
-            
-            data = {
-                'price': float(t.price),
-                'size': int(t.size),
-                'conditions': t.conditions
-            }
-            
-            self.trades_buffer[symbol].append(data)
-            self.stats['messages_received'] += 1
-            self.stats['last_update'] = datetime.now()
-            
-        except Exception as e:
-            logger.error(f"Error handling trade: {e}")
-    
-    async def _handle_bar(self, bar):
-        """Handler para bars (OHLCV agregados)"""
-        try:
-            symbol = bar.symbol
-            self._init_buffers(symbol)
-            
-            data = {
-                'open': float(bar.open),
-                'high': float(bar.high),
-                'low': float(bar.low),
-                'close': float(bar.close),
-                'volume': int(bar.volume),
-                'vwap': float(bar.vwap) if hasattr(bar, 'vwap') else None
-            }
-            
-            self.bars_buffer[symbol].append(data)
-            
-        except Exception as e:
-            logger.error(f"Error handling bar: {e}")
-    
-    def subscribe(self, symbols: List[str], data_types: List[str] = ['quotes', 'trades']):
-        """
-        Suscribe a símbolos para streaming
-        
-        Args:
-            symbols: Lista de símbolos ['AAPL', 'TSLA', etc]
-            data_types: Tipos de datos ['quotes', 'trades', 'bars']
-        """
-        for symbol in symbols:
-            self._init_buffers(symbol)
-            self.subscribed_symbols.add(symbol)
-        
-        # Subscribir según tipo
-        if 'quotes' in data_types:
-            self.stream.subscribe_quotes(self._handle_quote, *symbols)
-        
-        if 'trades' in data_types:
-            self.stream.subscribe_trades(self._handle_trade, *symbols)
-        
-        if 'bars' in data_types:
-            self.stream.subscribe_bars(self._handle_bar, *symbols)
-        
-        logger.info(f"✅ Subscribed to {len(symbols)} symbols: {data_types}")
+        logger.info(f"✅ Símbolos registrados para consulta: {symbols}")
     
     def unsubscribe(self, symbols: List[str] = None):
         """Cancela suscripción y limpia buffers"""
@@ -286,7 +180,7 @@ class RealTimeStreamer:
                             'spread': float(quote.ask_price - quote.bid_price)
                         })
                         
-                        self.stats['messages_received'] += 1
+                        self.stats['messages_received'] += 2 # Sumamos trade y quote
                         self.stats['last_update'] = datetime.now()
                         
                     except Exception as e:
@@ -299,19 +193,10 @@ class RealTimeStreamer:
         self.stream_thread.start()
         logger.info("✅ Motor iniciado correctamente.")
     
-    def stop(self):
-        """Detiene streaming"""
-        if not self.is_running:
-            return
+    self.is_running = False
+        # No necesitamos self.stream.stop(), con poner is_running en False el hilo se detiene solo
         
-        self.is_running = False
-        
-        try:
-            self.stream.stop()
-        except:
-            pass
-        
-        logger.info("⏸️ Stream stopped")
+        logger.info("⏸️ Motor de consulta detenido.")
     
     # ============================================================================
     # MÉTODOS DE ACCESO A DATOS (Thread-safe)
