@@ -22,6 +22,7 @@ from portfolio_tracker import PortfolioTracker, display_portfolio_dashboard
 from auto_monitoring import AutoMonitoringSystem, setup_auto_monitoring, display_monitoring_controls
 from consensus_analyzer import ConsensusAnalyzer, get_consensus_analysis
 from auto_trader import AutoTrader, AlpacaConnector, SafetyManager
+from realtime_streamer import RealTimeStreamer, init_realtime_streamer
 
 # ============================================================================
 # CONFIGURACIÓN INICIAL
@@ -135,6 +136,14 @@ if 'auto_trader' not in st.session_state:
 
 # Definir la variable global para que la Tab 8 la reconozca
 auto_trader = st.session_state.auto_trader
+
+# Inicializar (después de auto_trader)
+if 'realtime_streamer' not in st.session_state:
+    symbols = lista_completa[:5]  # Primeros 5
+    
+    st.session_state.realtime_streamer = init_realtime_streamer(
+        st, alpaca_key, alpaca_secret, symbols, paper=True
+    )
 
 # ============================================================================
 # UI HELPER: CREAR TARJETAS MÉTRICAS
@@ -630,7 +639,14 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
 with tab1:
     
     c1, c2, c3, c4, c5 = st.columns(5)
-    with c1: crear_metric_card("Precio", f"${signals['price']:.2f}", f"{signals['price_change_pct']:+.2f}%")
+    with c1: 
+        # Si el streamer está activo, muestra el precio en vivo de Alpaca
+        if st.session_state.get('realtime_streamer'):
+            price_live = st.session_state.realtime_streamer.get_latest_price(ticker)
+            crear_metric_card("Precio LIVE", f"${price_live:.2f}", "STREAMING")
+        else:
+            # Si no, muestra el precio estático de Yahoo Finance como respaldo
+            crear_metric_card("Precio", f"${signals['price']:.2f}", f"{signals['price_change_pct']:+.2f}%")
     with c2: crear_metric_card("RSI", f"{signals['rsi']:.1f}", "Sobrecompra" if signals['rsi'] > 70 else "Neutral")
     with c3: crear_metric_card("ADX", f"{signals['adx']:.1f}", signals['trend_strength'])
     with c4: crear_metric_card("RVOL", f"{signals['rvol']:.2f}x", "Alto" if signals['rvol'] > 1.5 else "Normal")
