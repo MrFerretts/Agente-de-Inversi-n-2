@@ -158,13 +158,6 @@ if 'auto_trader' not in st.session_state:
 # Definir la variable global para que la Tab 8 la reconozca
 auto_trader = st.session_state.auto_trader
 
-# --- CONTROL DE CONEXIÓN (Switch Maestro) ---
-st.sidebar.header("⚡ Fuente de Datos")
-usa_tiempo_real = st.sidebar.toggle(
-    "Conectar a Alpaca (Live)", 
-    value=False, 
-    help="Si está apagado, el sistema NO consultará a Alpaca para ahorrar recursos."
-)
 st.session_state.use_realtime = usa_tiempo_real
 
 # Inicializar (Solo si el switch está ON)
@@ -674,20 +667,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
 with tab1:
     
     c1, c2, c3, c4, c5 = st.columns(5)
-    with c1: 
-        # Verificamos el switch del sidebar Y que el streamer esté inicializado
-        if st.session_state.get('use_realtime') and st.session_state.get('realtime_streamer'):
-            price_live = st.session_state.realtime_streamer.get_latest_price(ticker)
-            
-            # Validación para evitar el TypeError si el dato aún no llega
-            if price_live and price_live > 0:
-                crear_metric_card("Precio LIVE", f"${float(price_live):.2f}", "STREAMING")
-            else:
-                # Respaldo visual mientras conecta
-                crear_metric_card("Precio", f"${signals['price']:.2f}", "Sincronizando...")
-        else:
-            # MODO ESTÁNDAR: Yahoo Finance (Estable y seguro)
-            crear_metric_card("Precio", f"${signals['price']:.2f}", f"{signals['price_change_pct']:+.2f}%")
+    with c1: crear_metric_card("Precio", f"${signals['price']:.2f}", f"{signals['price_change_pct']:+.2f}%")
     with c2: crear_metric_card("RSI", f"{signals['rsi']:.1f}", "Sobrecompra" if signals['rsi'] > 70 else "Neutral")
     with c3: crear_metric_card("ADX", f"{signals['adx']:.1f}", signals['trend_strength'])
     with c4: crear_metric_card("RVOL", f"{signals['rvol']:.2f}x", "Alto" if signals['rvol'] > 1.5 else "Normal")
