@@ -1947,11 +1947,7 @@ if st.sidebar.checkbox("📊 Ver Análisis en Caché"):
             
             st.sidebar.caption(f"• {ticker_cached}: {minutes_ago}m {seconds_ago}s ago")
 
-# ============================================================================
-# MONITOR DE SEÑALES EN TIEMPO REAL (FUERA DE LAS TABS)
-# ============================================================================
-st.sidebar.markdown("---")
-st.sidebar.header("🔔 Alertas Proactivas")
+
 # --- SWITCH MAESTRO DE DATOS ---
 st.sidebar.markdown("---")
 st.sidebar.header("⚡ Fuente de Datos")
@@ -1961,7 +1957,7 @@ usa_tiempo_real = st.sidebar.toggle(
     help="Si se apaga, usa Yahoo Finance por defecto."
 )
 st.session_state.use_realtime = usa_tiempo_real
-auto_monitor = st.sidebar.checkbox("Activar Monitor en Vivo", value=False)
+auto_monitor = st.sidebar.checkbox("🔔 Alertas Proactivas", value=False)
 
 # El monitor debe ejecutarse siempre que esté activo, sin importar la pestaña
 if auto_monitor:
