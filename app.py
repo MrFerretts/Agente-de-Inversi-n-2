@@ -21,6 +21,7 @@ from ml_model import TradingMLModel, train_ml_model_for_ticker, get_ml_predictio
 from portfolio_tracker import PortfolioTracker, display_portfolio_dashboard
 from auto_monitoring import AutoMonitoringSystem, setup_auto_monitoring, display_monitoring_controls
 from consensus_analyzer import ConsensusAnalyzer, get_consensus_analysis
+from auto_trader import AutoTrader, AlpacaConnector, SafetyManager
 
 # ============================================================================
 # CONFIGURACIÓN INICIAL
@@ -101,6 +102,8 @@ if 'portfolio_tracker' not in st.session_state:
     st.session_state.portfolio_tracker = PortfolioTracker(data_file="data/portfolio.json")
 
 portfolio_tracker = st.session_state.portfolio_tracker
+
+
 
 state_mgr = st.session_state.state_manager
 risk_mgr = st.session_state.risk_manager
@@ -586,14 +589,15 @@ with st.spinner("Analizando contexto macro..."):
 # TABS PRINCIPALES
 # ============================================================================
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📊 Dashboard Principal",
     "📈 Análisis Técnico Avanzado",
     "💰 Risk Management",
     "🧪 Backtesting Pro",
     "🔍 Scanner Multi-Activo",
     "🤖 Machine Learning",
-    "💼 Mi Portfolio"  # ← NUEVO TAB
+    "💼 Mi Portfolio",
+    "🤖 Auto-Trading"  # ← NUEVO
 ])
 
 # ============================================================================
@@ -1612,6 +1616,180 @@ with tab7:
     risk_pct = (total_risk / position_size) * 100 if position_size > 0 else 0
     
     st.caption(f"💡 Riesgo estimado: ${total_risk:.2f} ({risk_pct:.2f}% de la posición)")
+
+# ============================================================================
+# TAB 8: AUTO-TRADING
+# ============================================================================
+
+with tab8:
+    st.header("🤖 Sistema de Auto-Trading")
+    
+    if auto_trader is None:
+        st.error("❌ Auto-Trader no está configurado")
+        st.markdown("""
+        ### Pasos para configurar:
+        1. Crear cuenta en Alpaca Markets
+        2. Obtener API keys (Paper Trading)
+        3. Agregar keys a Secrets:
+           ```
+           [ALPACA]
+           api_key = "pk_xxx"
+           api_secret = "xxx"
+           paper_trading = true
+           ```
+        4. Reiniciar app
+        """)
+        st.stop()
+    
+    # Mostrar estado
+    st.markdown("---")
+    
+    # Modo (Paper o Live)
+    mode_emoji = "📝" if auto_trader.paper_mode else "💰"
+    mode_text = "PAPER TRADING" if auto_trader.paper_mode else "LIVE TRADING"
+    mode_color = "#f39c12" if auto_trader.paper_mode else "#e74c3c"
+    
+    st.markdown(f"""
+    <div style='padding: 15px; background-color: {mode_color}20; border-left: 5px solid {mode_color}; margin-bottom: 20px;'>
+        <h3 style='margin: 0;'>{mode_emoji} Modo: {mode_text}</h3>
+        <p>{'Simulación - No se usa dinero real' if auto_trader.paper_mode else '⚠️ DINERO REAL - Ten precaución'}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Estado de la cuenta
+    status = auto_trader.get_status()
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("💰 Valor de Cuenta", f"${status['account_value']:,.2f}")
+    
+    with col2:
+        st.metric("💵 Poder de Compra", f"${status['buying_power']:,.2f}")
+    
+    with col3:
+        st.metric("📊 Posiciones Abiertas", status['open_positions'])
+    
+    with col4:
+        trades_today = status['safety_status']['daily_trades']
+        max_trades = status['safety_status']['max_daily_trades']
+        st.metric("📈 Trades Hoy", f"{trades_today}/{max_trades}")
+    
+    st.markdown("---")
+    
+    # Control del auto-trading
+    col_ctrl1, col_ctrl2 = st.columns([2, 1])
+    
+    with col_ctrl1:
+        st.subheader("⚙️ Control del Sistema")
+        
+        # Toggle auto-trading
+        auto_enabled = st.session_state.get('auto_trading_enabled', False)
+        
+        if auto_enabled:
+            st.success("✅ Auto-Trading ACTIVO - El sistema está operando automáticamente")
+            
+            if st.button("⏸️ PAUSAR Auto-Trading", type="secondary", use_container_width=True):
+                st.session_state.auto_trading_enabled = False
+                st.rerun()
+        else:
+            st.warning("⏸️ Auto-Trading PAUSADO - No se ejecutarán trades automáticos")
+            
+            if st.button("▶️ ACTIVAR Auto-Trading", type="primary", use_container_width=True):
+                st.session_state.auto_trading_enabled = True
+                st.success("✅ Auto-Trading activado!")
+                st.rerun()
+    
+    with col_ctrl2:
+        st.subheader("🛑 Acciones de Emergencia")
+        
+        if st.button("❌ Cerrar TODAS las Posiciones", type="secondary"):
+            if st.checkbox("⚠️ Confirmar cierre de todas las posiciones"):
+                auto_trader.broker.close_all_positions()
+                st.success("✅ Todas las posiciones cerradas")
+                st.balloons()
+        
+        if st.button("🗑️ Cancelar TODAS las Órdenes"):
+            auto_trader.broker.cancel_all_orders()
+            st.success("✅ Todas las órdenes canceladas")
+    
+    st.markdown("---")
+    
+    # Configuración de seguridad
+    with st.expander("⚙️ Configuración de Seguridad"):
+        st.markdown("### Límites de Trading")
+        
+        safety_config = auto_trader.safety.config
+        
+        col_s1, col_s2 = st.columns(2)
+        
+        with col_s1:
+            st.number_input("Max Trades Diarios", 
+                          value=safety_config['max_daily_trades'],
+                          min_value=1, max_value=50,
+                          key='safety_max_trades')
+            
+            st.number_input("Max Pérdida Diaria ($)", 
+                          value=safety_config['max_daily_loss_usd'],
+                          min_value=100, max_value=10000,
+                          key='safety_max_loss')
+            
+            st.number_input("Consensus Score Mínimo", 
+                          value=safety_config['min_consensus_score'],
+                          min_value=50, max_value=95,
+                          key='safety_min_score')
+        
+        with col_s2:
+            st.number_input("Max Posiciones Abiertas", 
+                          value=safety_config['max_open_positions'],
+                          min_value=1, max_value=20,
+                          key='safety_max_positions')
+            
+            st.number_input("Tamaño Max de Posición (%)", 
+                          value=safety_config['max_position_size_pct'],
+                          min_value=1.0, max_value=50.0,
+                          key='safety_max_size')
+            
+            st.number_input("Confianza Mínima (%)", 
+                          value=safety_config['min_confidence'],
+                          min_value=50, max_value=95,
+                          key='safety_min_conf')
+        
+        if st.button("💾 Guardar Configuración"):
+            # Actualizar config
+            auto_trader.safety.config['max_daily_trades'] = st.session_state.safety_max_trades
+            auto_trader.safety.config['max_daily_loss_usd'] = st.session_state.safety_max_loss
+            auto_trader.safety.config['min_consensus_score'] = st.session_state.safety_min_score
+            auto_trader.safety.config['max_open_positions'] = st.session_state.safety_max_positions
+            auto_trader.safety.config['max_position_size_pct'] = st.session_state.safety_max_size
+            auto_trader.safety.config['min_confidence'] = st.session_state.safety_min_conf
+            
+            auto_trader.safety.save_config()
+            st.success("✅ Configuración guardada")
+    
+    st.markdown("---")
+    
+    # Posiciones en Alpaca
+    st.subheader("📊 Posiciones en Alpaca")
+    
+    alpaca_positions = auto_trader.broker.get_all_positions()
+    
+    if alpaca_positions:
+        df_alpaca = pd.DataFrame(alpaca_positions)
+        st.dataframe(df_alpaca, use_container_width=True, hide_index=True)
+    else:
+        st.info("No hay posiciones abiertas en Alpaca")
+    
+    st.markdown("---")
+    
+    # Log de trades
+    st.subheader("📜 Historial de Auto-Trades")
+    
+    if auto_trader.trade_log:
+        df_log = pd.DataFrame(auto_trader.trade_log)
+        st.dataframe(df_log, use_container_width=True, hide_index=True)
+    else:
+        st.info("No hay trades ejecutados aún")
 
 # ============================================================================
 # 🤖 PASO C: MACHINE LEARNING (PÉGALO AQUÍ AHORA)
