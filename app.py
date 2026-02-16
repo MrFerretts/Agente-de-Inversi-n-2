@@ -160,6 +160,15 @@ if 'auto_trader' not in st.session_state:
 # Definir la variable global para que la Tab 8 la reconozca
 auto_trader = st.session_state.auto_trader
 
+# --- CONTROL DE CONEXIÓN (Switch Maestro) ---
+st.sidebar.header("⚡ Fuente de Datos")
+usa_tiempo_real = st.sidebar.toggle(
+    "Conectar a Alpaca (Live)", 
+    value=False, 
+    help="Si está apagado, el sistema NO consultará a Alpaca para ahorrar recursos."
+)
+st.session_state.use_realtime = usa_tiempo_real
+
 # Inicializar (después de auto_trader)
 if 'realtime_streamer' not in st.session_state:
     symbols = lista_completa[:5]  # Primeros 5
