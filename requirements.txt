@@ -49,4 +49,4 @@ xgboost>=1.5.0
 tensorflow>=2.10.0
 
 #Auto Trade
-+ alpaca-trade-api>=3.0.0
+alpaca-trade-api>=3.0.0
