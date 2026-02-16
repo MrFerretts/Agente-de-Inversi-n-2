@@ -14,8 +14,8 @@ from typing import Dict, List, Optional, Callable
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import streamlit as st
-from consensus_analyzer import ConsensusAnalyzer #
+import streamlit as st # ← Requerido para leer session_state
+from consensus_analyzer import ConsensusAnalyzer # ← Requerido para el bot
 
 class AutoMonitoringSystem:
     """
