@@ -23,6 +23,7 @@ from auto_monitoring import AutoMonitoringSystem, setup_auto_monitoring, display
 from consensus_analyzer import ConsensusAnalyzer, get_consensus_analysis
 from auto_trader import AutoTrader, AlpacaConnector, SafetyManager
 from realtime_streamer import RealTimeStreamer, init_realtime_streamer
+from pairs_trading import PairsFinder, PairsTrader
 
 # ============================================================================
 # CONFIGURACIÓN INICIAL
@@ -650,7 +651,7 @@ with st.spinner("Analizando contexto macro..."):
 # TABS PRINCIPALES
 # ============================================================================
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📊 Dashboard Principal",
     "📈 Análisis Técnico Avanzado",
     "💰 Risk Management",
@@ -658,7 +659,8 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "🔍 Scanner Multi-Activo",
     "🤖 Machine Learning",
     "💼 Mi Portfolio",
-    "🤖 Auto-Trading"  # ← NUEVO
+    "🤖 Auto-Trading",
+    "⚖️ Pairs Trading"
 ])
 
 # ============================================================================
@@ -1864,6 +1866,89 @@ with tab8:
         st.dataframe(df_log, use_container_width=True, hide_index=True)
     else:
         st.info("No hay trades ejecutados aún")
+
+# ============================================================================
+# TAB 9: PAIRS TRADING (ARBITRAJE ESTADÍSTICO)
+# ============================================================================
+with tab9:
+    st.header("⚖️ Estrategia de Arbitraje Estadístico")
+    st.markdown("*Market-Neutral: Gana con la convergencia de dos activos cointegrados.*")
+
+    # 1. Selección de Par
+    col_p1, col_p2 = st.columns([1, 2])
+    with col_p1:
+        st.subheader("🛠️ Configuración")
+        classic_pairs = [f"{p[0]} - {p[1]}" for p in get_classic_pairs()]
+        par_seleccionado = st.selectbox("Seleccionar Par Clásico:", classic_pairs)
+        t1, t2 = par_seleccionado.split(" - ")
+        
+        periodo_pairs = st.selectbox("Periodo de Análisis:", ["1y", "2y", "5y"], index=0)
+        
+    # 2. Carga de Datos y Análisis
+    if st.button("🚀 Analizar Par de Arbitraje", use_container_width=True):
+        with st.spinner(f"Analizando cointegración entre {t1} y {t2}..."):
+            # Obtener datos de ambos activos
+            d1 = fetcher.get_portfolio_data([t1], period=periodo_pairs)[t1]
+            d2 = fetcher.get_portfolio_data([t2], period=periodo_pairs)[t2]
+            
+            if not d1.empty and not d2.empty:
+                # Asegurar que tengan el mismo tamaño
+                common_index = d1.index.intersection(d2.index)
+                s1, s2 = d1.loc[common_index, 'Close'], d2.loc[common_index, 'Close']
+                
+                # Inicializar herramientas
+                finder = PairsFinder()
+                trader = PairsTrader()
+                
+                # Calcular Cointegración
+                pair_stats = finder._calculate_pair_stats(s1, s2, t1, t2)
+                spread = trader.calculate_spread(s1, s2, pair_stats['hedge_ratio'])
+                z_score = trader.calculate_z_score(spread)
+                
+                # 3. Visualización
+                st.markdown("---")
+                c_m1, c_m2, c_m3 = st.columns(3)
+                c_m1.metric("Hedge Ratio (Beta)", f"{pair_stats['hedge_ratio']:.4f}")
+                c_m2.metric("Half-Life (Reversión)", f"{pair_stats['half_life']:.1f} días")
+                c_m3.metric("Z-Score Actual", f"{z_score.iloc[-1]:.2f}")
+                
+                # Gráfico de Z-Score
+                st.subheader("📉 Z-Score del Spread")
+                fig_z = go.Figure()
+                fig_z.add_trace(go.Scatter(x=z_score.index, y=z_score, name="Z-Score", line=dict(color='#00ff88')))
+                # Líneas de umbral
+                fig_z.add_hline(y=2, line_dash="dash", line_color="red", annotation_text="Vender Par")
+                fig_z.add_hline(y=-2, line_dash="dash", line_color="green", annotation_text="Comprar Par")
+                fig_z.add_hline(y=0, line_color="white", opacity=0.3)
+                fig_z.update_layout(template="plotly_dark", height=400)
+                st.plotly_chart(fig_z, use_container_width=True)
+                
+                # 4. Señal Actual
+                signal = trader.generate_signals(t1, t2, s1, s2, pair_stats['hedge_ratio'])
+                
+                st.markdown("---")
+                st.subheader("🎯 Señal de Ejecución")
+                
+                color_sig = "#27ae60" if "LONG" in signal['signal'] else "#e74c3c" if "SHORT" in signal['signal'] else "#95a5a6"
+                st.markdown(f"""
+                <div style='padding: 20px; background-color: {color_sig}20; border-radius: 10px; border-left: 5px solid {color_sig};'>
+                    <h2 style='margin:0; color:{color_sig};'>{signal['signal']}</h2>
+                    <p style='font-size:18px;'>{signal['details']}</p>
+                    <p><b>Fuerza:</b> {signal['signal_strength']} | <b>Tamaño Sugerido:</b> {signal['position_size_pct']}% del capital</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # 5. Backtest del Par
+                with st.expander("🧪 Ver Backtest Histórico del Par"):
+                    bt_res = trader.backtest_pair(t1, t2, s1, s2, pair_stats['hedge_ratio'])
+                    if 'error' not in bt_res:
+                        c_b1, c_b2, c_b3 = st.columns(3)
+                        c_b1.metric("Win Rate", f"{bt_res['win_rate']:.1f}%")
+                        c_b2.metric("Profit Factor", f"{bt_res['profit_factor']:.2f}")
+                        c_b3.metric("Retorno Total", f"{bt_res['total_return']:.2f}%")
+                        st.dataframe(pd.DataFrame([bt_res]), use_container_width=True)
+            else:
+                st.error("No se pudieron obtener datos para uno de los activos.")
 
 # ============================================================================
 # 🤖 PASO C: MACHINE LEARNING (PÉGALO AQUÍ AHORA)
