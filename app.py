@@ -667,12 +667,16 @@ with tab1:
     
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1: 
-        # Si el streamer está activo, muestra el precio en vivo de Alpaca
+        # Verificamos si hay conexión con el flujo de datos de tu Mac
         if st.session_state.get('realtime_streamer'):
+            # Obtenemos el último precio del ticker seleccionado
             price_live = st.session_state.realtime_streamer.get_latest_price(ticker)
+            
+            # Mostramos la tarjeta con el diseño de círculo y texto LIVE
             crear_metric_card("Precio LIVE", f"${price_live:.2f}", "STREAMING")
         else:
-            # Si no, muestra el precio estático de Yahoo Finance como respaldo
+            # Si el streamer está apagado, mostramos el dato normal
+            crear_metric_card("Precio", f"${signals['price']:.2f}", f"{signals['price_change_pct']:+.2f}%")
             crear_metric_card("Precio", f"${signals['price']:.2f}", f"{signals['price_change_pct']:+.2f}%")
     with c2: crear_metric_card("RSI", f"{signals['rsi']:.1f}", "Sobrecompra" if signals['rsi'] > 70 else "Neutral")
     with c3: crear_metric_card("ADX", f"{signals['adx']:.1f}", signals['trend_strength'])
