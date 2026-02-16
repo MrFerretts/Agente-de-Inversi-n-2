@@ -22,7 +22,6 @@ from portfolio_tracker import PortfolioTracker, display_portfolio_dashboard
 from auto_monitoring import AutoMonitoringSystem, setup_auto_monitoring, display_monitoring_controls
 from consensus_analyzer import ConsensusAnalyzer, get_consensus_analysis
 from auto_trader import AutoTrader, AlpacaConnector, SafetyManager
-from realtime_streamer import RealTimeStreamer, init_realtime_streamer
 from pairs_trading import PairsFinder, PairsTrader, get_classic_pairs
 # ============================================================================
 # CONFIGURACIÓN INICIAL
@@ -2039,8 +2038,14 @@ if st.sidebar.checkbox("📊 Ver Análisis en Caché"):
             st.sidebar.caption(f"• {ticker_cached}: {minutes_ago}m {seconds_ago}s ago")
 
 
+# --- SWITCH MAESTRO DE DATOS ---
 st.sidebar.markdown("---")
-st.sidebar.header("⚡ Alertas")
+st.sidebar.header("⚡ Fuente de Datos")
+usa_tiempo_real = st.sidebar.toggle(
+    "Activar Alpaca Real-Time", 
+    value=False, 
+    help="Si se apaga, usa Yahoo Finance por defecto."
+)
 st.session_state.use_realtime = usa_tiempo_real
 auto_monitor = st.sidebar.checkbox("🔔 Alertas Proactivas", value=False)
 
@@ -2071,6 +2076,7 @@ st.caption(f"""
 📊 {len(lista_completa)} activos monitoreados | 
 ⏱️ Última actualización: {datetime.now(pytz.timezone('America/Monterrey')).strftime('%d/%m/%Y %H:%M:%S')} (Monterrey)
 """)
+
 
 
 
