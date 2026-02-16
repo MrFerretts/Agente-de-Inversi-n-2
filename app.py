@@ -668,17 +668,18 @@ with tab1:
     
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1: 
-        # Verificamos si el streamer está activo
-        if st.session_state.get('realtime_streamer'):
+        # Verificamos el switch del sidebar Y que el streamer esté inicializado
+        if st.session_state.get('use_realtime') and st.session_state.get('realtime_streamer'):
             price_live = st.session_state.realtime_streamer.get_latest_price(ticker)
             
-            # FILTRO DE SEGURIDAD: Solo si el precio es un número válido y mayor a 0
+            # Validación para evitar el TypeError si el dato aún no llega
             if price_live and price_live > 0:
                 crear_metric_card("Precio LIVE", f"${float(price_live):.2f}", "STREAMING")
             else:
-                # Si aún no hay dato en vivo, mostramos el de respaldo (Yahoo) para evitar el TypeError
+                # Respaldo visual mientras conecta
                 crear_metric_card("Precio", f"${signals['price']:.2f}", "Sincronizando...")
         else:
+            # MODO ESTÁNDAR: Yahoo Finance (Estable y seguro)
             crear_metric_card("Precio", f"${signals['price']:.2f}", f"{signals['price_change_pct']:+.2f}%")
     with c2: crear_metric_card("RSI", f"{signals['rsi']:.1f}", "Sobrecompra" if signals['rsi'] > 70 else "Neutral")
     with c3: crear_metric_card("ADX", f"{signals['adx']:.1f}", signals['trend_strength'])
@@ -1951,6 +1952,15 @@ if st.sidebar.checkbox("📊 Ver Análisis en Caché"):
 # ============================================================================
 st.sidebar.markdown("---")
 st.sidebar.header("🔔 Alertas Proactivas")
+# --- SWITCH MAESTRO DE DATOS ---
+st.sidebar.markdown("---")
+st.sidebar.header("⚡ Fuente de Datos")
+usa_tiempo_real = st.sidebar.toggle(
+    "Activar Alpaca Real-Time", 
+    value=False, 
+    help="Si se apaga, usa Yahoo Finance por defecto."
+)
+st.session_state.use_realtime = usa_tiempo_real
 auto_monitor = st.sidebar.checkbox("Activar Monitor en Vivo", value=False)
 
 # El monitor debe ejecutarse siempre que esté activo, sin importar la pestaña
