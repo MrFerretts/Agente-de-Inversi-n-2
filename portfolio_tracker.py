@@ -519,10 +519,20 @@ def display_portfolio_dashboard(tracker: PortfolioTracker, current_prices: Dict[
             st.markdown("### 📊 Métricas Detalladas")
             
             st.metric("Total Trades", metrics['total_trades'])
-            st.metric("Ganadores", f"{metrics['winning_trades']} ({metrics['win_rate']:.1f}%)")
-            st.metric("Perdedores", f"{metrics['losing_trades']} ({100-metrics['win_rate']:.1f}%)")
-            st.metric("Avg Win", f"${metrics['avg_win']:.2f} ({metrics['avg_win_pct']:.2f}%)")
-            st.metric("Avg Loss", f"${metrics['avg_loss']:.2f} ({metrics['avg_loss_pct']:.2f}%)")
+            
+            # Separar el cálculo del formato para evitar problemas
+            win_text = f"{metrics['winning_trades']} ({metrics['win_rate']:.1f}%)"
+            st.metric("Ganadores", win_text)
+            
+            loss_pct = 100 - metrics['win_rate']
+            loss_text = f"{metrics['losing_trades']} ({loss_pct:.1f}%)"
+            st.metric("Perdedores", loss_text)
+            
+            avg_win_text = f"${metrics['avg_win']:.2f} ({metrics['avg_win_pct']:.2f}%)"
+            st.metric("Avg Win", avg_win_text)
+            
+            avg_loss_text = f"${metrics['avg_loss']:.2f} ({metrics['avg_loss_pct']:.2f}%)"
+            st.metric("Avg Loss", avg_loss_text)
         
         with col2:
             # Distribución de P&L
