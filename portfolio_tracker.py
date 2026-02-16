@@ -170,13 +170,20 @@ class PortfolioTracker:
         if not closed:
             return {
                 'total_trades': 0,
-                'win_rate': 0,
-                'avg_win': 0,
-                'avg_loss': 0,
-                'profit_factor': 0,
-                'sharpe_ratio': 0,
-                'max_drawdown': 0,
-                'total_return': 0
+                'winning_trades': 0, # ← Agregamos esta
+                'losing_trades': 0,  # ← Agregamos esta
+                'win_rate': 0.0,
+                'avg_win': 0.0,
+                'avg_win_pct': 0.0,  # ← Agregamos esta
+                'avg_loss': 0.0,
+                'avg_loss_pct': 0.0, # ← Agregamos esta
+                'profit_factor': 0.0,
+                'sharpe_ratio': 0.0,
+                'max_drawdown': 0.0,
+                'total_return': 0.0,
+                'total_pnl': 0.0,
+                'initial_capital': self.portfolio['initial_capital'],
+                'current_capital': self.portfolio['current_capital']
             }
         
         # Calcular wins y losses
@@ -392,11 +399,16 @@ def display_portfolio_dashboard(tracker: PortfolioTracker, current_prices: Dict[
         )
     
     with col2:
-        # Evitar división por cero en el delta
-        delta_text = f"{metrics['winning_trades']}/{metrics['total_trades']}" if metrics['total_trades'] > 0 else "Sin trades"
+       # Usamos .get() para evitar KeyErrors si una métrica falta por error
+        win_trades = metrics.get('winning_trades', 0)
+        total_trades = metrics.get('total_trades', 0)
+        win_rate = metrics.get('win_rate', 0.0)
+        
+        delta_text = f"{win_trades}/{total_trades}" if total_trades > 0 else "Sin trades"
+        
         st.metric(
             "Win Rate",
-            f"{metrics['win_rate']:.1f}%",
+            f"{win_rate:.1f}%",
             delta=delta_text
         )
     
