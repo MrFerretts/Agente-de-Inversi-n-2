@@ -1,6 +1,6 @@
 """
-PORTFOLIO TRACKING SYSTEM - VERSIÓN COMPLETA RESTAURADA
-Incluye: Equity Curve, P&L Distribution, Trading Journal y Diseño de Círculos
+PORTFOLIO TRACKING SYSTEM - VERSIÓN DEFINITIVA BLINDADA
+Solución al KeyError: 'winning_trades' y Diseño de Círculos
 """
 
 import pandas as pd
@@ -17,7 +17,7 @@ class PortfolioTracker:
         self.portfolio = self._load_portfolio()
         
     def _load_portfolio(self) -> Dict:
-        """Carga el portfolio asegurando la integridad de los datos"""
+        """Carga el portfolio asegurando que existan todas las llaves necesarias"""
         defaults = {
             'positions': [],
             'closed_trades': [],
@@ -29,7 +29,6 @@ class PortfolioTracker:
             try:
                 with open(self.data_file, 'r') as f:
                     data = json.load(f)
-                # Reparación de llaves faltantes
                 for key, val in defaults.items():
                     if key not in data: data[key] = val
                 return data
@@ -42,7 +41,7 @@ class PortfolioTracker:
             json.dump(self.portfolio, f, indent=2)
 
     def add_position(self, ticker, entry_price, shares, stop_loss, take_profit, strategy="Manual", notes=""):
-        """Abre posición y descuenta del capital"""
+        """Abre posición y descuenta capital"""
         pos_size = float(entry_price * shares)
         position = {
             'id': len(self.portfolio['positions']) + len(self.portfolio['closed_trades']) + 1,
@@ -57,7 +56,7 @@ class PortfolioTracker:
         return position
 
     def close_position(self, position_id, exit_price, reason="Manual"):
-        """Cierra posición y reintegra capital + P&L"""
+        """Cierra posición y calcula P&L final"""
         for i, pos in enumerate(self.portfolio['positions']):
             if pos['id'] == position_id:
                 position = self.portfolio['positions'].pop(i)
@@ -76,26 +75,26 @@ class PortfolioTracker:
         return None
 
     def calculate_metrics(self) -> Dict:
-        """Calcula todas las métricas blindadas contra errores"""
+        """Calcula todas las métricas garantizando que no falte ninguna llave"""
         closed = self.portfolio['closed_trades']
         initial = float(self.portfolio.get('initial_capital', 10000.0))
         
-        # Valor real de la cuenta (Efectivo + Valor actual de acciones)
+        # Valor total = Efectivo + Valor actual de posiciones
         open_val = sum([p.get('current_value', p['position_size']) for p in self.portfolio['positions']])
         total_equity = self.portfolio['current_capital'] + open_val
         
-        # Diccionario base completo para evitar KeyErrors
+        # INICIALIZACIÓN COMPLETA (Evita KeyError)
         metrics = {
             'total_trades': len(closed), 'winning_trades': 0, 'losing_trades': 0,
             'win_rate': 0.0, 'avg_win': 0.0, 'avg_win_pct': 0.0,
             'avg_loss': 0.0, 'avg_loss_pct': 0.0, 'profit_factor': 0.0,
-            'total_return': ((total_equity - initial) / initial) * 100,
+            'total_return': ((total_equity - initial) / initial) * 100 if initial > 0 else 0,
             'current_equity': total_equity, 'sharpe_ratio': 0.0, 'max_drawdown': 0.0
         }
 
         if not closed: return metrics
 
-        # Cálculos avanzados
+        # Cálculos si hay historial
         wins = [t['pnl'] for t in closed if t['pnl'] > 0]
         losses = [abs(t['pnl']) for t in closed if t['pnl'] < 0]
         
@@ -111,7 +110,6 @@ class PortfolioTracker:
         return metrics
 
     def update_positions(self, current_prices: Dict[str, float]):
-        """Actualiza el P&L no realizado de la cartera"""
         for pos in self.portfolio['positions']:
             if pos['ticker'] in current_prices:
                 price = current_prices[pos['ticker']]
@@ -122,34 +120,31 @@ class PortfolioTracker:
         self._save_portfolio()
 
     def create_equity_chart(self) -> go.Figure:
-        """Genera el gráfico de crecimiento de capital"""
-        closed = self.portfolio['closed_trades']
+        """Crea el gráfico de crecimiento de balance"""
         dates = [datetime.fromisoformat(self.portfolio['start_date'])]
         equity = [self.portfolio['initial_capital']]
-        
         running = self.portfolio['initial_capital']
-        for t in closed:
+        for t in self.portfolio['closed_trades']:
             running += t['pnl']
             dates.append(datetime.fromisoformat(t['exit_date']))
             equity.append(running)
-            
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=dates, y=equity, mode='lines+markers', name='Balance', line=dict(color='#00ff88', width=3), fill='tozeroy'))
-        fig.update_layout(title="📈 Crecimiento del Portfolio", template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=350)
+        fig.add_trace(go.Scatter(x=dates, y=equity, mode='lines+markers', name='Equity', line=dict(color='#00ff88', width=3), fill='tozeroy'))
+        fig.update_layout(title="📈 Evolución del Capital", template="plotly_dark", height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         return fig
 
-# --- INTERFAZ STREAMLIT FULL MODULAR ---
+# --- INTERFAZ DE DASHBOARD CON CÍRCULOS ---
 def display_portfolio_dashboard(tracker, current_prices):
     import streamlit as st
     tracker.update_positions(current_prices)
     metrics = tracker.calculate_metrics()
     
-    # UI Component: Círculos (reutiliza el CSS de app.py)
+    # UI Helper: Círculos Visuales
     def metric_circle_ui(titulo, valor, delta, sub):
         color = "#00c853" if "+" in str(delta) or "🟢" in str(delta) else "#d32f2f"
         st.markdown(f"""
         <div class="metric-card">
-            <p style="color: #a0a0a0; font-size: 12px; margin-bottom: 5px;">{titulo}</p>
+            <p style="color: #a0a0a0; font-size: 12px; margin-bottom: 5px; text-transform: uppercase;">{titulo}</p>
             <div class="metric-circle">
                 <h3 style="color: #ffffff; margin: 0; font-size: 18px;">{valor}</h3>
             </div>
@@ -160,7 +155,7 @@ def display_portfolio_dashboard(tracker, current_prices):
 
     st.subheader("💼 Terminal de Gestión de Activos")
     
-    # 1. CÍRCULOS DE RENDIMIENTO
+    # 1. KPIs EN CÍRCULOS
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1: metric_circle_ui("EQUITY TOTAL", f"${metrics['current_equity']:,.0f}", f"{metrics['total_return']:+.2f}%", "Retorno Total")
     with c2: metric_circle_ui("WIN RATE", f"{metrics['win_rate']:.1f}%", f"🟢 {metrics['winning_trades']}", f"de {metrics['total_trades']} trades")
@@ -169,50 +164,46 @@ def display_portfolio_dashboard(tracker, current_prices):
     with c5: metric_circle_ui("OPEN POS", f"{len(tracker.portfolio['positions'])}", "Activas", "Exposición")
 
     st.markdown("---")
-    
-    # 2. GRÁFICO DE EQUITY
     st.plotly_chart(tracker.create_equity_chart(), use_container_width=True)
 
-    # 3. TABS DE DETALLES
-    t_act, t_hist, t_stats = st.tabs(["📊 Posiciones Activas", "📜 Historial Completo", "📈 Estadísticas IA"])
+    # 2. SECCIÓN DE POSICIONES Y HISTORIAL
+    tab_a, tab_b, tab_c = st.tabs(["📊 Posiciones Activas", "📜 Historial de Trades", "🧠 Estadísticas IA"])
     
-    with t_act:
-        positions = tracker.portfolio['positions']
-        if positions:
+    with tab_a:
+        if tracker.portfolio['positions']:
             df_p = pd.DataFrame([{
                 'ID': p['id'], 'Ticker': p['ticker'], 'Entrada': f"${p['entry_price']:.2f}",
                 'Actual': f"${p.get('current_price', 0):.2f}", 'Shares': p['shares'],
                 'P&L $': f"${p.get('unrealized_pnl', 0):.2f}", 'P&L %': f"{p.get('unrealized_pnl_pct', 0):.2f}%",
-                'Estrategia': p['strategy']
-            } for p in positions])
+                'Notas': p['notes']
+            } for p in tracker.portfolio['positions']])
             st.dataframe(df_p, use_container_width=True, hide_index=True)
             
-            # Botones de Acción
-            st.write("### ⚙️ Acciones Rápidas")
-            for p in positions:
-                with st.expander(f"🔧 Gestionar {p['ticker']}"):
-                    col_a, col_b = st.columns(2)
-                    if col_a.button(f"✅ Cerrar {p['ticker']}", key=f"c_{p['id']}", use_container_width=True):
+            # Botones de Cierre
+            st.markdown("### ⚙️ Gestión Directa")
+            for p in tracker.portfolio['positions']:
+                with st.expander(f"🔧 Operar {p['ticker']} (ID: {p['id']})"):
+                    col_x, col_y = st.columns(2)
+                    if col_x.button(f"✅ Cerrar Posición {p['ticker']}", key=f"close_btn_{p['id']}", use_container_width=True):
                         tracker.close_position(p['id'], p.get('current_price', p['entry_price']))
+                        st.success(f"Posición {p['ticker']} cerrada con éxito.")
                         st.rerun()
-                    if col_b.button(f"🗑️ Eliminar ID:{p['id']}", key=f"d_{p['id']}", use_container_width=True):
+                    if col_y.button(f"🗑️ Eliminar Sin Registro", key=f"del_btn_{p['id']}", use_container_width=True):
                         tracker.portfolio['positions'] = [pos for pos in tracker.portfolio['positions'] if pos['id'] != p['id']]
                         tracker.portfolio['current_capital'] += p['position_size']
                         tracker._save_portfolio()
                         st.rerun()
         else:
-            st.info("No hay posiciones abiertas actualmente.")
+            st.info("No tienes posiciones abiertas.")
 
-    with t_hist:
-        closed = tracker.portfolio['closed_trades']
-        if closed:
-            df_c = pd.DataFrame(closed).sort_values('exit_date', ascending=False)
-            st.dataframe(df_c[['exit_date', 'ticker', 'entry_price', 'exit_price', 'pnl', 'pnl_pct', 'exit_reason']], use_container_width=True)
+    with tab_b:
+        if tracker.portfolio['closed_trades']:
+            df_hist = pd.DataFrame(tracker.portfolio['closed_trades']).sort_values('exit_date', ascending=False)
+            st.dataframe(df_hist[['exit_date', 'ticker', 'entry_price', 'exit_price', 'pnl', 'pnl_pct']], use_container_width=True)
         else:
-            st.info("Tu historial de trading está vacío.")
+            st.info("El historial de trading está vacío.")
 
-    with t_stats:
-        col_s1, col_s2 = st.columns(2)
-        col_s1.metric("Promedio Ganador", f"${metrics['avg_win']:,.2f}", f"{metrics['avg_win_pct']:.2f}%")
-        col_s2.metric("Promedio Perdedor", f"${metrics['avg_loss']:,.2f}", f"{metrics['avg_loss_pct']:.2f}%")
-        st.caption("💡 Las métricas de Sharpe y Alpha se activarán cuando tengas más de 5 trades cerrados.")
+    with tab_c:
+        c_ia1, c_ia2 = st.columns(2)
+        c_ia1.metric("Promedio Ganador", f"${metrics['avg_win']:,.2f}", f"{metrics['avg_win_pct']:.2f}%")
+        c_ia2.metric("Promedio Perdedor", f"${metrics['avg_loss']:,.2f}", f"{metrics['avg_loss_pct']:.2f}%")
