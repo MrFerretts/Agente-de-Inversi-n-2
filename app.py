@@ -113,6 +113,30 @@ analyzer = st.session_state.analyzer
 notifier = st.session_state.notifier
 
 # ============================================================================
+# INICIALIZAR AUTO-TRADER (CONEXIÓN ALPACA)
+# ============================================================================
+if 'auto_trader' not in st.session_state:
+    try:
+        # Busca las llaves en tus secrets de Streamlit
+        alpaca_sec = st.secrets.get("ALPACA", {})
+        if alpaca_sec:
+            st.session_state.auto_trader = AutoTrader(
+                alpaca_api_key=alpaca_sec.get("api_key"),
+                alpaca_secret=alpaca_sec.get("api_secret"),
+                consensus_analyzer=ConsensusAnalyzer(),
+                portfolio_tracker=portfolio_tracker,
+                paper_trading=alpaca_sec.get("paper_trading", True)
+            )
+        else:
+            st.session_state.auto_trader = None
+    except Exception as e:
+        st.error(f"⚠️ Error inicializando Alpaca: {str(e)}")
+        st.session_state.auto_trader = None
+
+# Definir la variable global para que la Tab 8 la reconozca
+auto_trader = st.session_state.auto_trader
+
+# ============================================================================
 # UI HELPER: CREAR TARJETAS MÉTRICAS
 # ============================================================================
 def crear_metric_card(titulo, valor, delta):
