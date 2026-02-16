@@ -158,8 +158,6 @@ if 'auto_trader' not in st.session_state:
 # Definir la variable global para que la Tab 8 la reconozca
 auto_trader = st.session_state.auto_trader
 
-st.session_state.use_realtime = usa_tiempo_real
-
 # Inicializar (Solo si el switch está ON)
 if st.session_state.use_realtime and 'realtime_streamer' not in st.session_state:
     symbols = lista_completa[:5]
