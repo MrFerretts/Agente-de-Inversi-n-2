@@ -23,7 +23,7 @@ from auto_monitoring import AutoMonitoringSystem, setup_auto_monitoring, display
 from consensus_analyzer import ConsensusAnalyzer, get_consensus_analysis
 from auto_trader import AutoTrader, AlpacaConnector, SafetyManager
 from realtime_streamer import RealTimeStreamer, init_realtime_streamer
-from pairs_trading import PairsFinder, PairsTrader
+from pairs_trading import PairsFinder, PairsTrader, get_classic_pairs
 
 # ============================================================================
 # CONFIGURACIÓN INICIAL
