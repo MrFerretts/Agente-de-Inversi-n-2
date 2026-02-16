@@ -14,7 +14,8 @@ from typing import Dict, List, Optional, Callable
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
+import streamlit as st
+from consensus_analyzer import ConsensusAnalyzer #
 
 class AutoMonitoringSystem:
     """
@@ -156,11 +157,29 @@ class AutoMonitoringSystem:
             # Precio actual
             current_price = data_processed['Close'].iloc[-1]
             
+            # --- NUEVO: CÁLCULO DE CONSENSUS PARA EL BOT ---
+            # Buscamos si existe modelo LSTM para este ticker
+            lstm_prediction = None
+            lstm_key = f"{ticker}_lstm"
+            if lstm_key in self.ml_models:
+                try: lstm_prediction = self.ml_models[lstm_key].predict(data_processed)
+                except: pass
+
+            # Generamos el veredicto unificado
+            ca = ConsensusAnalyzer()
+            consensus = ca.analyze_consensus(
+                technical_score=analysis['signals']['score'],
+                ml_prediction=ml_prediction,
+                lstm_prediction=lstm_prediction
+            )
+
             return {
                 'ticker': ticker,
                 'price': current_price,
                 'technical': analysis,
                 'ml_prediction': ml_prediction,
+                'consensus': consensus,      # ← Requerido por el bot
+                'data_processed': data_processed, # ← Requerido para ATR
                 'timestamp': datetime.now().isoformat()
             }
             
@@ -233,6 +252,35 @@ class AutoMonitoringSystem:
         # Enviar alertas
         for alert in alerts:
             self._send_alert(alert)
+
+    # ============================================================================
+        # 📦 NUEVO: EJECUCIÓN DE AUTO-TRADING
+        # ============================================================================
+        if 'auto_trader' in st.session_state and st.session_state.get('auto_trading_enabled', False):
+            auto_trader = st.session_state.auto_trader
+            consensus = analysis['consensus'] # Obtenido en el Paso 2
+            data_processed = analysis['data_processed']
+            
+            # Si hay consensus muy fuerte, ejecutar (Mínimo 75 Score y 80% Confianza)
+            if (consensus['consensus_score'] >= 75 and consensus['confidence'] >= 80):
+                try:
+                    current_price = analysis['price']
+                    atr = data_processed['ATR'].iloc[-1]
+                    vix = 20  # Podríamos traer el VIX real desde fetcher si se requiere
+                    
+                    # El bot de Alpaca toma el control aquí
+                    result = auto_trader.evaluate_and_execute(
+                        ticker=ticker,
+                        consensus=consensus,
+                        current_price=current_price,
+                        atr=atr,
+                        vix=vix
+                    )
+                    
+                    if result:
+                        print(f"🚀 [AUTO-TRADE] Orden ejecutada con éxito para {ticker}")
+                except Exception as e:
+                    print(f"❌ Error en auto-trade {ticker}: {str(e)}")
     
     def _check_positions(self):
         """Revisa posiciones abiertas para stops/targets"""
