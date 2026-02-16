@@ -115,6 +115,26 @@ fetcher = st.session_state.fetcher
 analyzer = st.session_state.analyzer
 notifier = st.session_state.notifier
 
+# --- MOVIDO HACIA ARRIBA PARA EVITAR NAMEERROR ---
+import json
+FILE_PATH = "data/watchlist.json"
+
+def cargar_watchlist():
+    if os.path.exists(FILE_PATH):
+        with open(FILE_PATH, "r") as f:
+            return json.load(f)
+    return {"stocks": PORTFOLIO_CONFIG['stocks'], "crypto": PORTFOLIO_CONFIG['crypto']}
+
+def guardar_watchlist(data_dict):
+    with open(FILE_PATH, "w") as f:
+        json.dump(data_dict, f)
+
+if 'mis_activos' not in st.session_state:
+    st.session_state.mis_activos = cargar_watchlist()
+
+# Definimos lista_completa AQUÍ para que el Streamer pueda leerla
+lista_completa = st.session_state.mis_activos['stocks'] + st.session_state.mis_activos['crypto']
+
 # ============================================================================
 # INICIALIZAR AUTO-TRADER (CONEXIÓN ALPACA)
 # ============================================================================
@@ -141,10 +161,15 @@ auto_trader = st.session_state.auto_trader
 
 # Inicializar (después de auto_trader)
 if 'realtime_streamer' not in st.session_state:
-    symbols = lista_completa[:5]  # Primeros 5
+    symbols = lista_completa[:5]  # Ahora sí funcionará porque la movimos arriba
     
+    # IMPORTANTE: Usamos API_CONFIG para las llaves
     st.session_state.realtime_streamer = init_realtime_streamer(
-        st, alpaca_key, alpaca_secret, symbols, paper=True
+        st, 
+        API_CONFIG['alpaca_api_key'], 
+        API_CONFIG['alpaca_secret_key'], 
+        symbols, 
+        paper=True
     )
 
 # ============================================================================
