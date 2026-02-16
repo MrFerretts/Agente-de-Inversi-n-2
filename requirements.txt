@@ -50,3 +50,6 @@ tensorflow>=2.10.0
 
 #Auto Trade
 alpaca-trade-api>=3.0.0
+
+# Pairs Trading
+statsmodels>=0.14.0
