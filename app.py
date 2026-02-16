@@ -159,6 +159,9 @@ if 'auto_trader' not in st.session_state:
 # Definir la variable global para que la Tab 8 la reconozca
 auto_trader = st.session_state.auto_trader
 
+# Inicializar (después de auto_trader)
+if 'realtime_streamer' not in st.session_state:
+    symbols = lista_completa[:5]  # Primeros 5
 # Extraemos las llaves del bloque [ALPACA] que ya definimos arriba
     alpaca_sec = st.secrets.get("ALPACA", {})
     
