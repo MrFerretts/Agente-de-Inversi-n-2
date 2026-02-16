@@ -12,7 +12,8 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Deque
 import logging
-from alpaca_trade_api.stream import Stream
+from alpaca_trade_api.rest import REST # ← REST es la clave para evitar bloqueos en la nube
+import time # Para el control de velocidad
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -104,12 +105,11 @@ class RealTimeStreamer:
         """
         base_url = 'https://paper-api.alpaca.markets' if paper else 'https://api.alpaca.markets'
         
-        self.stream = Stream(
+        self.api = REST(
             alpaca_key,
             alpaca_secret,
-            base_url=base_url,
-            data_feed='iex'  # O 'sip' para datos más completos ($$$)
-        )
+            base_url=base_url
+        )  # O 'sip' para datos más completos ($$$)
         
         # Buffers por símbolo (gestión de memoria)
         self.quotes_buffer: Dict[str, MemoryOptimizedBuffer] = {}
@@ -256,25 +256,48 @@ class RealTimeStreamer:
         logger.info(f"🗑️ Unsubscribed from {len(symbols)} symbols")
     
     def start(self):
-        """Inicia streaming en background thread"""
+        """Inicia el loop de consulta en background thread"""
         if self.is_running:
-            logger.warning("Stream already running")
             return
         
         self.is_running = True
         
         def run_stream():
-            try:
-                logger.info("🚀 Starting WebSocket stream...")
-                self.stream.run()
-            except Exception as e:
-                logger.error(f"Stream error: {e}")
-                self.is_running = False
+            logger.info("🚀 Iniciando motor de consulta REST (Anti-Bloqueos)...")
+            while self.is_running:
+                for symbol in list(self.subscribed_symbols):
+                    try:
+                        # 1. Pedir último Trade
+                        trade = self.api.get_latest_trade(symbol)
+                        # Reutilizamos tus handlers originales para no romper tu lógica
+                        self.trades_buffer[symbol].append({
+                            'price': float(trade.price),
+                            'size': int(trade.size),
+                            'conditions': getattr(trade, 'conditions', [])
+                        })
+                        
+                        # 2. Pedir último Quote
+                        quote = self.api.get_latest_quote(symbol)
+                        self.quotes_buffer[symbol].append({
+                            'bid': float(quote.bid_price),
+                            'ask': float(quote.ask_price),
+                            'bid_size': int(quote.bid_size),
+                            'ask_size': int(quote.ask_size),
+                            'spread': float(quote.ask_price - quote.bid_price)
+                        })
+                        
+                        self.stats['messages_received'] += 1
+                        self.stats['last_update'] = datetime.now()
+                        
+                    except Exception as e:
+                        logger.error(f"Error actualizando {symbol}: {e}")
+                
+                # Pausa de seguridad para evitar Error 429
+                time.sleep(1.5) 
         
         self.stream_thread = threading.Thread(target=run_stream, daemon=True)
         self.stream_thread.start()
-        
-        logger.info("✅ Stream started in background")
+        logger.info("✅ Motor iniciado correctamente.")
     
     def stop(self):
         """Detiene streaming"""
