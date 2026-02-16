@@ -168,10 +168,9 @@ usa_tiempo_real = st.sidebar.toggle(
 )
 st.session_state.use_realtime = usa_tiempo_real
 
-# Inicializar (después de auto_trader)
-if 'realtime_streamer' not in st.session_state:
-    symbols = lista_completa[:5]  # Primeros 5
-# Extraemos las llaves del bloque [ALPACA] que ya definimos arriba
+# Inicializar (Solo si el switch está ON)
+if st.session_state.use_realtime and 'realtime_streamer' not in st.session_state:
+    symbols = lista_completa[:5]
     alpaca_sec = st.secrets.get("ALPACA", {})
     
     st.session_state.realtime_streamer = init_realtime_streamer(
@@ -181,7 +180,6 @@ if 'realtime_streamer' not in st.session_state:
         symbols, 
         paper=True
     )
-
 # ============================================================================
 # UI HELPER: CREAR TARJETAS MÉTRICAS
 # ============================================================================
@@ -2041,14 +2039,8 @@ if st.sidebar.checkbox("📊 Ver Análisis en Caché"):
             st.sidebar.caption(f"• {ticker_cached}: {minutes_ago}m {seconds_ago}s ago")
 
 
-# --- SWITCH MAESTRO DE DATOS ---
 st.sidebar.markdown("---")
-st.sidebar.header("⚡ Fuente de Datos")
-usa_tiempo_real = st.sidebar.toggle(
-    "Activar Alpaca Real-Time", 
-    value=False, 
-    help="Si se apaga, usa Yahoo Finance por defecto."
-)
+st.sidebar.header("⚡ Alertas")
 st.session_state.use_realtime = usa_tiempo_real
 auto_monitor = st.sidebar.checkbox("🔔 Alertas Proactivas", value=False)
 
