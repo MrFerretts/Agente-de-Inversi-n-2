@@ -20,6 +20,7 @@ from groq import Groq
 from ml_model import TradingMLModel, train_ml_model_for_ticker, get_ml_prediction, format_ml_output
 from portfolio_tracker import PortfolioTracker, display_portfolio_dashboard
 from auto_monitoring import AutoMonitoringSystem, setup_auto_monitoring, display_monitoring_controls
+from consensus_analyzer import ConsensusAnalyzer, get_consensus_analysis
 
 # ============================================================================
 # CONFIGURACIÓN INICIAL
@@ -622,6 +623,8 @@ with tab1:
         if st.button("🔮 Consultar al Oráculo (Análisis Profundo)", use_container_width=True):
             with st.spinner("IA analizando contexto histórico..."):
                 analisis_ia = consultar_ia_groq(ticker, analysis, signals, market_regime, data_processed)
+                # Guardar en session_state para usar en Consensus
+                st.session_state.last_groq_analysis = analisis_ia
                 st.markdown(analisis_ia)
 
         st.markdown("---")
@@ -775,6 +778,155 @@ with tab1:
             st.error(f"Error en predicción LSTM: {str(e)}")
     else:
         st.info("💡 Entrena el cerebro LSTM en la barra lateral para ver este análisis.")
+
+    # ============================================================================
+    # 🎯 CONSENSUS SCORE - COMBINACIÓN DE TODOS LOS ANÁLISIS
+    # ============================================================================
+    
+    st.markdown("---")
+    st.markdown("## 🎯 Consensus Analysis")
+    st.markdown("*Combinación inteligente de Score Técnico + ML + LSTM + Groq AI*")
+    
+    # Recopilar todas las predicciones disponibles
+    ml_pred = None
+    lstm_pred = None
+    groq_text = None
+    
+    # 1. ML Prediction
+    if ticker in st.session_state.ml_models:
+        try:
+            ml_pred = get_ml_prediction(st.session_state.ml_models[ticker], data_processed)
+        except:
+            pass
+    
+    # 2. LSTM Prediction
+    lstm_key = f"{ticker}_lstm"
+    if lstm_key in st.session_state.ml_models:
+        try:
+            lstm_pred = st.session_state.ml_models[lstm_key].predict(data_processed)
+        except:
+            pass
+    
+    # 3. Groq Analysis (si está en session_state)
+    if 'last_groq_analysis' in st.session_state:
+        groq_text = st.session_state.last_groq_analysis
+    
+    # Generar Consensus
+    try:
+        consensus_analyzer = ConsensusAnalyzer()
+        consensus = consensus_analyzer.analyze_consensus(
+            technical_score=analysis['signals']['score'],
+            ml_prediction=ml_pred,
+            lstm_prediction=lstm_pred,
+            groq_analysis=groq_text
+        )
+        
+        # Mostrar resultado en cards profesionales
+        col_c1, col_c2, col_c3 = st.columns(3)
+        
+        with col_c1:
+            score_color = "🟢" if consensus['consensus_score'] >= 70 else "🟡" if consensus['consensus_score'] >= 50 else "🔴"
+            st.markdown(f"""
+            <div class='metric-card'>
+                <h4>Consensus Score</h4>
+                <div style='font-size: 42px; font-weight: bold; color: #00ff88;'>
+                    {score_color} {consensus['consensus_score']:.1f}<span style='font-size: 24px;'>/100</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_c2:
+            conf_color = "#27ae60" if consensus['confidence'] >= 80 else "#f39c12" if consensus['confidence'] >= 60 else "#e74c3c"
+            st.markdown(f"""
+            <div class='metric-card'>
+                <h4>Confianza</h4>
+                <div style='font-size: 42px; font-weight: bold; color: {conf_color};'>
+                    {consensus['confidence']:.0f}<span style='font-size: 24px;'>%</span>
+                </div>
+                <p style='font-size: 12px; color: #888;'>{len(consensus['sources_used'])}/4 fuentes</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_c3:
+            rec = consensus['recommendation']
+            rec_color = "#27ae60" if "COMPRA" in rec else "#e74c3c" if "VENTA" in rec else "#f39c12"
+            rec_emoji = "🟢" if "COMPRA" in rec else "🔴" if "VENTA" in rec else "🟡"
+            st.markdown(f"""
+            <div class='metric-card'>
+                <h4>Recomendación</h4>
+                <div style='font-size: 24px; font-weight: bold; color: {rec_color}; margin-top: 15px;'>
+                    {rec_emoji}<br>{rec}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Breakdown detallado
+        with st.expander("📊 Ver Breakdown Completo del Consensus"):
+            st.markdown("### Ponderación por Fuente")
+            
+            # Crear tabla de breakdown
+            breakdown_data = []
+            for source in consensus['sources_used']:
+                source_score = consensus['source_scores'][source]
+                weight = consensus['weights_used'][source]
+                contribution = source_score * (weight / 100)
+                
+                source_names = {
+                    'technical': '📊 Análisis Técnico',
+                    'ml': '🤖 Machine Learning',
+                    'lstm': '🧠 LSTM Deep Learning',
+                    'groq': '💬 Groq AI'
+                }
+                
+                breakdown_data.append({
+                    'Fuente': source_names.get(source, source),
+                    'Score': f"{source_score:.1f}/100",
+                    'Peso': f"{weight:.0f}%",
+                    'Contribución': f"{contribution:.1f}"
+                })
+            
+            df_breakdown = pd.DataFrame(breakdown_data)
+            st.dataframe(df_breakdown, use_container_width=True, hide_index=True)
+            
+            # Interpretación
+            st.markdown("### 💡 Interpretación")
+            
+            if consensus['confidence'] >= 80:
+                st.success("✅ **Alta confianza** - Las fuentes están muy alineadas. Esta es una señal fuerte.")
+            elif consensus['confidence'] >= 60:
+                st.info("ℹ️ **Confianza moderada** - Hay buen acuerdo entre las fuentes disponibles.")
+            else:
+                st.warning("⚠️ **Baja confianza** - Señales mixtas entre las fuentes. Proceder con precaución.")
+            
+            if consensus['consensus_score'] >= 70:
+                st.markdown("📈 El consenso apunta firmemente hacia una **oportunidad de compra**.")
+            elif consensus['consensus_score'] >= 60:
+                st.markdown("↗️ El consenso sugiere un **ligero sesgo alcista**.")
+            elif consensus['consensus_score'] <= 30:
+                st.markdown("📉 El consenso apunta hacia una **oportunidad de venta**.")
+            elif consensus['consensus_score'] <= 40:
+                st.markdown("↘️ El consenso sugiere **precaución con sesgo bajista**.")
+            else:
+                st.markdown("↔️ El consenso sugiere **esperar por señales más claras**.")
+            
+            # Discrepancias
+            if consensus['discrepancies']:
+                st.markdown("### ⚠️ Señales Conflictivas Detectadas")
+                for disc in consensus['discrepancies']:
+                    st.warning(disc)
+                st.caption("*Cuando hay discrepancias importantes, se recomienda análisis adicional.*")
+        
+        # Botón de actualización
+        col_btn1, col_btn2 = st.columns([1, 3])
+        with col_btn1:
+            if st.button("🔄 Actualizar Análisis", use_container_width=True):
+                st.cache_data.clear()
+                st.success("✅ Datos actualizados")
+                st.rerun()
+        
+    except Exception as e:
+        st.error(f"Error generando consensus: {str(e)}")
+        st.caption("Asegúrate de haber entrenado al menos el modelo ML para ver el consensus completo.")
 
 # ============================================================================
 # TAB 2: ANÁLISIS TÉCNICO AVANZADO
@@ -1577,5 +1729,6 @@ st.caption(f"""
 📊 {len(lista_completa)} activos monitoreados | 
 ⏱️ Última actualización: {datetime.now(pytz.timezone('America/Monterrey')).strftime('%d/%m/%Y %H:%M:%S')} (Monterrey)
 """)
+
 
 
